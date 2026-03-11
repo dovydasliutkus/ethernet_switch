@@ -29,7 +29,7 @@ modelsim.ini
 
 # Ignore fpga template from learn for now
 fpga/template/*
-
+!fpga/template/README.md
 
 # Dovydas's files
 doc/spec_consideration.md
