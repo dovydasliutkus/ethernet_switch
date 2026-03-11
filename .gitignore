@@ -32,5 +32,4 @@ fpga/template/*
 !fpga/template/README.md
 
 # Dovydas's files
-doc/spec_consideration.md
 doc/8023-2022.pdf
