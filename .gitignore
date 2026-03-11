@@ -1,0 +1,36 @@
+# ModelSim / QuestaSim
+
+# Compiled libraries
+work/
+libraries/
+
+# Transcript and log files
+transcript
+vsim.wlf
+*.wlf
+*.log
+
+# Simulation temp files
+*.vstf
+*.ucdb
+
+# Wave files
+*.do
+!wave.do
+!sim.do
+
+# Auto-generated project files
+modelsim.ini
+*.mpf
+
+# Backup files
+*~
+*.bak
+
+# Ignore fpga template from learn for now
+fpga/template/*
+
+
+# Dovydas's files
+doc/spec_consideration.md
+doc/8023-2022.pdf
