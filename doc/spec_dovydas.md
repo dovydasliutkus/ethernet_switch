@@ -49,6 +49,26 @@ Destination address is sent ot the `Mac Learner` to see if there is an entry tha
 
 
 #### Entry aging
-As the LUT is of finite size at some point it will fill up. Overwriting old entries is inefficient as it will require many broadcasts (floods). So we need to introduce a mechanism for aging. Currently two options:
-1. MAC Learner will have trash collection with timing. If an entry hasn't been used for 5 mins, drop it. Each entry has a counter, if it overflows the entry is invalidated.
-2. Keep priority in the MAC LUT, based on how often the value has been fetched (this seems more difficult than option 1)
+
+The MAC LUT has finite size, so eventually it can fill up. To manage this, we implement aging:
+
+* **Option chosen:** Discard entries that haven’t been used for a while (simpler than prioritizing by access frequency).
+
+**Implementation:**
+
+* Generate a hash from each MAC address to index into the LUT.
+* Each index holds 4 entries:
+
+```
+entry = { mac, port, valid_bit, timestamp }
+```
+
+* On new entry arrival:
+
+  1. Check for an invalid or expired entry in the bucket and use it.
+  2. If all entries are valid, replace the one with the **oldest timestamp**.
+
+**Notes:**
+
+* An additional **expired flag** is optional, but timestamps can be compared against a global age limit to determine expiration.
+
