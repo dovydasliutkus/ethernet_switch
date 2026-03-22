@@ -1,5 +1,12 @@
 # Specification
 
+## Spec
+1. Handle 8k MAC addresses
+2. Frame size ranging from 64B to 1518B (excluding IFG and preamble)
+3. GMII Interface
+4. Switch must be non-blocking
+5. No frame reordering of frames form the same flow
+
 ## Signals
 
 `packet_valid` - 1-hot encoded signal. When the bit corresponding to the input Port is high, the input port will start transmitting data.
@@ -23,13 +30,25 @@
 ## Detailed operation
 
 ### FCS and control
-This module will collect data on 4 ports. It will collect data into FIFOs and CRC calculators at the same time. When a full packet is collected and the CRC is valid for one of the ports it will issue a request to the `MAC Learner`. Once it gets a valid value back from the `MAC Learner` it will start transmitting the corresponding port's data to the `Cross-bar`.
+
+This module will collect data on 4 ports. It will collect data into FIFOs and CRC calculators at the same time. 
+
+The `packet_status` FIFOs will keep track of how many packets have a valid CRC and inherently the number of packets in the FIFO (based on the FIFO pointers).
+
+The `packet_length` FIFOs will keep track of how long the packets are within the input FIFOs. This will be used to decide how many bytes have to be sent to the cross bar once the `dst_port` has been resolved.
+
+When a full packet is collected (`rx_ctrl` goes low) record the result from the CRC calculator in `packet_status` FIFO, record the packet length in `packet_length` FIFO. 
+
+* If the first output in `packet_status` is 0 dump the packet. 
+
+* If the first output in `packet_status` is 1 make a request to the `MAC Learner`, then with the returned `dst_port` start transmition to `Cross-bar`
+
 
 ### Notes
-1. To reuse `fcs_checker` from Exercise 1. rx_ctrl` will connect to `fcs_check` module. Need to change the `start_frame` and `end_frame` to work with `rx_ctrl` instead.
+1. To reuse `fcs_checker` from Exercise 1. `rx_ctrl` will connect to `fcs_check` module. Need to change the `start_frame` and `end_frame` to work with `rx_ctrl` instead.
     * Will need to estimate when the FCS section starts on the fly and do the bit inversion.
-2. As data is coming into the `fcs_check` in parallel it will also go to a FIFO.
-3. Once `rx_ctrl` goes low check the result from `fcs_check`. If no CRC error assert required signals for crossbar and MAC learning modules. If CRC error just don't assert anything for the following modules (next frame will just overwrite).
+2. As data is coming into the `CRC calculator` in parallel it will also go to a FIFO.
+
 
 
 ### MAC Learner
