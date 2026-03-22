@@ -4,7 +4,7 @@
 
 ### **FIFOs/**
 
-This directory contains FIFO IP cores used by the **FCS and Control module. All FIFOs are generated using Quartus Prime Lite.
+This directory contains FIFO IP cores used by the FCS and Control module. All FIFOs are generated using Quartus Prime Lite.
 
 Subdirectories:
 
