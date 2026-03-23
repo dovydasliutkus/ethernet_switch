@@ -5,19 +5,25 @@ VSIM = vsim
 VLOG_OPT = -timescale=1ns/1ps
 
 WORK = work
+ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
 
 RTL = rtl
 TB = tb
 
 SV_FILES = \
-	$(TB)/src/fcs_if.sv \
+	$(RTL)/crossbar/voq_buffer_cixb2.sv \
+	$(RTL)/crossbar/fifo.v 
 
-TOP = tb_fcs_serial_check
+TB_FILES = \
+	
+
+TOP = voq_buffer_cixb2
 
 all: compile
 
 compile:
 	$(VLIB) $(WORK)
+	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
 	$(VLOG) $(VLOG_OPT) $(SV_FILES)
 
 sim: compile

@@ -66,7 +66,7 @@ module voq_buffer_cixb2 #(
                 fifo_ren[i][j] = i_read_enable[i*PORTS + j];
 
                 // each row gets its input data
-                fifo_wdata[i][j] = i_data[i*DATA_W+ : DATA_W];
+                fifo_wdata[i][j] = i_data[i*DATA_W +: DATA_W];
             end
         end
     end
