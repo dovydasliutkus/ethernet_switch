@@ -2,7 +2,7 @@ module drr_scheduler #(
     parameter int PORT_ID   = 0,    // which output port schedueler manages (0-3)
     parameter int QUANTUM   = 1518,  // Bytes of credit added per DRR turn
     parameter int LEN_WIDTH = 11,   // Packet length field width (for 1518 byte packet)
-    parameter int OCC_WIDTH = 13    // Occupancy counter width from Quartus FIFO IP (depth 4096 )
+    parameter int OCC_WIDTH = 12    // Occupancy counter width from Quartus FIFO IP (depth 4096 )
 )(
     input logic                      clk,
     input logic                     reset,
