@@ -74,9 +74,10 @@ module voq_buffer_cixb2 #(
 
     /////////// Occupancy output logic ////////////////
     always_comb begin
+
         for (int i = 0; i < PORTS; i++) begin
             for (int j = 0; j < PORTS; j++) begin
-                o_occupancy[i*PORTS + j] = fifo_full[i][j];
+                o_occupancy[i*PORTS + j] = fifo_usedw[i][j];
             end
         end
     end
