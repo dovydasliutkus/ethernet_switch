@@ -45,7 +45,8 @@ When a full packet is collected (`rx_ctrl` goes low) record the result from the 
 
 
 ### Notes
-1. To reuse `fcs_checker` from Exercise 1. `rx_ctrl` will connect to `fcs_check` module. Need to change the `start_frame` and `end_frame` to work with `rx_ctrl` instead.
+1. To reuse `fcs_checker` from Exercise 1. 
+    * `rx_ctrl` will connect to `fcs_check` module. Need to change the `start_frame` and `end_frame` to work with `rx_ctrl` instead. Need to calculate the length of data on the fly.
     * Will need to estimate when the FCS section starts on the fly and do the bit inversion.
 2. As data is coming into the `CRC calculator` in parallel it will also go to a FIFO.
 

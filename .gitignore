@@ -33,3 +33,4 @@ fpga/template/*
 
 # Dovydas's files
 doc/8023-2022.pdf
+*.ppt

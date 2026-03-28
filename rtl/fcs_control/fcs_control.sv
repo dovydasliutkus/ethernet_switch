@@ -17,4 +17,8 @@ module fcs_control(
     output  logic   [0:3][10:0] o_packet_length
 );
 
+
+// If data_FIFO not full and rx_ctrll is high then record byte into data_FIFO and put it into CRC calculator
+
+
 endmodule
