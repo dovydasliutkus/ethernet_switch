@@ -5,8 +5,8 @@ VSIM = vsim
 VLOG_OPT = -timescale=1ns/1ps
 
 WORK = work
-ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
-
+# ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
+ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
 RTL = rtl
 TB = tb
 
@@ -20,6 +20,8 @@ TB_FILES = \
 TOP = voq_buffer_cixb2
 
 FCS_SV_FILES = \
+	$(RTL)/fcs_control/FIFOs/packet_length/packet_length_fifo.v \
+	$(RTL)/fcs_control/FIFOs/packet_status/packet_status_fifo.v \
 	$(RTL)/fcs_control/crc_calculator.sv
 
 FCS_TB_FILES = \
@@ -46,6 +48,7 @@ batch: compile
 
 fcs_compile:
 	$(VLIB) $(WORK)
+	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
 	$(VLOG) $(VLOG_OPT) $(FCS_SV_FILES) $(FCS_TB_FILES)
 
 fcs_sim: fcs_compile

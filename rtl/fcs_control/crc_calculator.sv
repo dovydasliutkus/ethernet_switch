@@ -5,6 +5,8 @@
 // 2. Calculates the ramainder rem[M(X)/G(X)]
 // =============================================================================
 
+// TODO top level has to make sure nothing is written into crc_calculator if data fifo is full
+// don't need to worry about crc fifos being full as they are sized to fit the maximum number of smallest data packets
 module crc_calculator(
     input   logic        clk,
     input   logic        reset,      // synchronous active-high
@@ -14,8 +16,15 @@ module crc_calculator(
     output  logic [47:0] src_mac,
     output  logic [47:0] dst_mac,
     output  logic [10:0] o_packet_length,
-    output  logic        o_valid
-);
+    output  logic        o_valid,
+
+    // FIFO signals
+    input   logic        i_length_ren,
+    input   logic        i_status_ren,
+
+    output  logic        o_length_empty,
+    output  logic        o_status_empty
+    );
 
     typedef enum logic [1:0] {
         IDLE,       // Starts shifting data when i_rx_ctrl goes high
@@ -29,11 +38,34 @@ module crc_calculator(
     logic [31:0]  rem_reg, rem_reg_n;
     logic [10:0]  counter, counter_n;    // global byte counter: increments every byte, 11 bits covers max Ethernet frame
     logic [7:0]   byte_in;               // inverted or straight i_data fed to CRC
-    logic calc_en;
+    logic calc_en, crc_valid;
 
     logic [47:0]  dst_mac_n, src_mac_n;
 
-    assign o_packet_length = counter;   // Only valid once i_rx_ctrl goes down
+    // FIFO signals
+    logic length_wen, status_wen;
+    // TODO regenerate FIFOs without full and usedw signals
+    packet_length_fifo u_length_fifo (
+        .clock  (clk            ),
+        .data   (counter        ),  // write: current byte count at end of frame
+        .wrreq  (length_wen     ),  // write enable: pulsed once per frame
+        .rdreq  (i_length_ren   ),  // read enable: driven by Output Control
+        .empty  (o_length_empty ),  // empty flag: for Output Control to know when it has something to read
+        .full   (),
+        .q      (o_packet_length),
+        .usedw  ()
+    );
+
+    packet_status_fifo u_status_fifo (
+        .clock  (clk            ),
+        .data   (crc_valid      ),  // write: 1=CRC ok, 0=bad frame
+        .wrreq  (status_wen     ),  // write enable: pulsed once per frame
+        .rdreq  (i_status_ren   ),  // read enable: driven by downstream consumer
+        .empty  (o_status_empty ), 
+        .full   (),  
+        .q      (o_valid        ),
+        .usedw  ()
+    );
 
     always_ff @(posedge clk) begin
         if (reset) begin
@@ -58,7 +90,9 @@ module crc_calculator(
         counter_n   = counter;
         byte_in     = i_data;
         calc_en     = 1'b0;
-        o_valid     = 1'b0;
+        crc_valid   = 1'b0;
+        length_wen  = 1'b0;
+        status_wen  = 1'b0;
         dst_mac_n   = dst_mac;
         src_mac_n   = src_mac;
 
@@ -114,8 +148,10 @@ module crc_calculator(
                 byte_in   = i_data;
                 counter_n = counter + 1;
             end else begin
-                o_valid           = (rem_reg == 32'hFFFF_FFFF);
-                state_n           = IDLE;
+                crc_valid  = (rem_reg == 32'hFFFF_FFFF);
+                length_wen = 1'b1;  // push byte count into length FIFO
+                status_wen = 1'b1;  // push CRC result into status FIFO
+                state_n    = IDLE;
             end
         end
         endcase
@@ -125,6 +161,7 @@ module crc_calculator(
             state_n   = IDLE;
             counter_n = '0;
             // TODO here we need some handling that would make the data_fifo drop the frame
+            // SOLUTION: If i_rx_ctrl is cutoff during transmission the crc value will be wrong - Output control will flush.
         end
     end
 
