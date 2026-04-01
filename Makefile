@@ -20,12 +20,12 @@ TB_FILES = \
 TOP = voq_buffer_cixb2
 
 FCS_SV_FILES = \
-	$(RTL)/fcs_control/fcs_check_parallel.sv
+	$(RTL)/fcs_control/crc_calculator.sv
 
 FCS_TB_FILES = \
-	$(TB)/fcs_check_parallel_tb.sv
+	$(TB)/crc_calculator_tb.sv
 
-FCS_TOP = fcs_check_parallel_tb
+FCS_TOP = crc_calculator_tb
 
 all: compile
 

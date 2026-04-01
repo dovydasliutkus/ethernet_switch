@@ -5,7 +5,7 @@
 // 2. Calculates the ramainder rem[M(X)/G(X)]
 // =============================================================================
 
-module fcs_check_parallel(
+module crc_calculator(
     input   logic        clk,
     input   logic        reset,      // synchronous active-high
     input   logic        i_rx_ctrl,

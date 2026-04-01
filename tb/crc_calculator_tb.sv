@@ -8,7 +8,7 @@
 //   [14..14+len-1] payload   [last 4] FCS
 // =============================================================================
 
-module fcs_check_parallel_tb;
+module crc_calculator_tb;
 
     logic        clk, reset;
     logic        i_rx_ctrl;
@@ -19,7 +19,7 @@ module fcs_check_parallel_tb;
 
     parameter packet_file_path = "E:/UserData/Desktop/Term2/fpga_for_comms/eth_switch/tb/packet.txt";
 
-    fcs_check_parallel dut (
+    crc_calculator dut (
         .clk             (clk),
         .reset           (reset),
         .i_rx_ctrl       (i_rx_ctrl),
