@@ -1,4 +1,7 @@
 module fcs_control(
+    input   logic  clk,
+    input   logic  reset,   // Synchronous active-high
+
     // Inputs from ethernet PHY
     input   logic   [3:0]   i_rx_ctrl,
     input   logic   [31:0]  i_rx_data,
