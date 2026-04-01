@@ -5,8 +5,6 @@
 // 2. Calculates the ramainder rem[M(X)/G(X)]
 // =============================================================================
 
-// IMPORTANT: After processing a frame needs to be at least 1 cycle in IDLE so that rem_reg is reset to zeros
-
 module fcs_check_parallel(
     input   logic        clk,
     input   logic        reset,      // synchronous active-high
@@ -23,23 +21,19 @@ module fcs_check_parallel(
         IDLE,       // Starts shifting data when i_rx_ctrl goes high
         DST_MAC,    // Collects 6 bytes
         SRC_MAC,    // Collects 6 bytes
-        PL_LENGTH,  // Payload length - 2 bytes
-        PAYLOAD,    // Payload repeats for the length determined in PL_LENGTH
-        FCS
+        PAYLOAD    // Payload repeats for the length determined in PL_LENGTH
     } state_t;
 
     state_t state, state_n;
 
-    logic [31:0] rem_reg, rem_reg_n;
-    logic [5:0]  counter, counter_n;     // counts 0 to 31 TODO set counter to minimum size
-    logic [7:0]  byte_in;                 // Holds the inverted/non-inverted i_data value based on start and end of frame
+    logic [31:0]  rem_reg, rem_reg_n;
+    logic [10:0]  counter, counter_n;    // global byte counter: increments every byte, 11 bits covers max Ethernet frame
+    logic [7:0]   byte_in;               // inverted or straight i_data fed to CRC
     logic calc_en;
 
-    logic [47:0] dst_mac_n, src_mac_n;
-    logic [15:0] pl_length, pl_length_n;
+    logic [47:0]  dst_mac_n, src_mac_n;
 
-    // Truncate the redundant part of packet length, add length for MACs, FCS, length
-    assign o_packet_length = pl_length[10:0] + 11'd18;
+    assign o_packet_length = counter;   // Only valid once i_rx_ctrl goes down
 
     always_ff @(posedge clk) begin
         if (reset) begin
@@ -48,7 +42,6 @@ module fcs_check_parallel(
             counter     <= '0;
             dst_mac     <= '0;
             src_mac     <= '0;
-            pl_length   <= '0;
         end
         else begin
             state       <= state_n;
@@ -56,7 +49,6 @@ module fcs_check_parallel(
             counter     <= counter_n;
             dst_mac     <= dst_mac_n;
             src_mac     <= src_mac_n;
-            pl_length   <= pl_length_n;
         end
     end
 
@@ -69,87 +61,63 @@ module fcs_check_parallel(
         o_valid     = 1'b0;
         dst_mac_n   = dst_mac;
         src_mac_n   = src_mac;
-        pl_length_n = pl_length;
 
         case (state)
 
         // --------------------------------------------------------
         IDLE: begin
-            if (i_rx_ctrl) begin // i_rx_ctrl goes high start recording data
-                byte_in         = ~i_data;  // invert first byte
-                dst_mac_n[7:0]  = ~i_data;  // Record first byte of destination mac
-                calc_en   = 1'b1;
-                counter_n = '0;       // first byte consumed this cycle
-                state_n   = DST_MAC;
+            if (i_rx_ctrl) begin
+                byte_in        = ~i_data;   // byte 0: inverted (first of the 4 CRC-preconditioned bytes)
+                dst_mac_n[7:0] = ~i_data;   // counter will be 1 after this cycle
+                calc_en        = 1'b1;
+                counter_n      = 11'd1;     // byte 0 consumed this cycle
+                state_n        = DST_MAC;
             end
         end
 
         // --------------------------------------------------------
         DST_MAC: begin
-            calc_en = 1'b1;
-
-            if (counter < 5) begin
-                byte_in = (counter < 3) ? ~i_data : i_data;  // invert bytes 1-3, pass bytes 4-5 as-is
-                dst_mac_n[(counter+1)*8 +: 8]  = byte_in; // Variable part select starting at bit 8 assign (counter+1)*8 number of bits
-                counter_n = counter + 1;
-            end else begin
-                counter_n   = '0;       // Reset counter
-                byte_in     = i_data;  
-                src_mac_n[7:0] = byte_in;
-                state_n   = SRC_MAC;
-                
-            end
-        end
-
-        // --------------------------------------------------------
-        SRC_MAC: begin
-             calc_en = 1'b1;
-
-            if (counter < 5) begin
-                byte_in = i_data;
-                src_mac_n[(counter+1)*8 +: 8]  = byte_in; // Variable part select starting at bit 8 assign (counter+1)*8 number of bits
-                counter_n = counter + 1;
-            end else begin
-                counter_n        = '0;       // Reset counter
-                byte_in          = i_data;  
-                pl_length_n[7:0] = byte_in;
-                state_n          = PL_LENGTH;
-                
-            end 
-        end
-        // --------------------------------------------------------
-        PL_LENGTH: begin
-            calc_en           = 1'b1;
-            pl_length_n[15:8] = byte_in;
-            counter_n         = '0;       // Reset counter
-            state_n           = PAYLOAD;
-        end
-        PAYLOAD: begin
-            calc_en = 1'b1;
-            
-            if (counter < pl_length) begin
-                byte_in = i_data;
-                counter_n = counter + 1;
-            end else begin
-                counter_n = '0;       // Reset counter
-                byte_in   = ~i_data;  // First byte of FCS so invert
-                state_n   = FCS;     
-            end
-        end
-
-        // --------------------------------------------------------
-        FCS: begin
-            calc_en = 1'b1;
-            byte_in   = ~i_data;   // Invert FCS bytes
+            calc_en   = 1'b1;
             counter_n = counter + 1;
 
-            // After 4 FCS bytes
-            if (counter == 3) begin
-                o_valid = (rem_reg != 32'b0);
-                state_n   = IDLE;
-            end // TODO mayb emove byte_in assignment to an else statement here
+            if (counter < 6) begin
+                byte_in  = (counter < 4) ? ~i_data : i_data;  // bytes 1-3 inverted, 4-5 as-is
+                dst_mac_n[counter*8 +: 8] = byte_in;  // counter=1→[15:8], 2→[23:16] ... 5→[47:40]
+            end else begin
+                // counter=6: first byte of src_mac
+                src_mac_n[7:0] = i_data;
+                state_n        = SRC_MAC;
+            end
         end
-        // After checking the o_validr the reg latches the next byte_in before going to IDLE, on serial that wasn't an issue
+
+        // --------------------------------------------------------
+        // Bytes 7-11 go into src_mac, byte 12 is EtherType (CRC only, no register).
+        SRC_MAC: begin
+            calc_en   = 1'b1;
+            counter_n = counter + 1;
+            byte_in   = i_data;
+
+            if (counter < 12) begin
+                src_mac_n[(counter-6)*8 +: 8] = byte_in;  // counter=7→[15:8], 8→[23:16] ... 11→[47:40]
+            end else begin
+                // counter=12: EtherType byte 0, feed to CRC only, then move on
+                state_n = PAYLOAD;
+            end
+        end
+
+        // --------------------------------------------------------
+        // All remaining bytes (EtherType byte 1 + payload + FCS) pass through here.
+        // counter holds the total frame byte count when i_rx_ctrl drops.
+        PAYLOAD: begin
+            if (i_rx_ctrl) begin
+                calc_en   = 1'b1;
+                byte_in   = i_data;
+                counter_n = counter + 1;
+            end else begin
+                o_valid           = (rem_reg == 32'hFFFF_FFFF);
+                state_n           = IDLE;
+            end
+        end
         endcase
 
         // Global abort: PHY dropped rx_ctrl early

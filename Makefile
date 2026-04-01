@@ -19,6 +19,14 @@ TB_FILES = \
 
 TOP = voq_buffer_cixb2
 
+FCS_SV_FILES = \
+	$(RTL)/fcs_control/fcs_check_parallel.sv
+
+FCS_TB_FILES = \
+	$(TB)/fcs_check_parallel_tb.sv
+
+FCS_TOP = fcs_check_parallel_tb
+
 all: compile
 
 compile:
@@ -35,6 +43,16 @@ wave: compile
 batch: compile
 	$(VSIM) -c $(TOP) -do "run -all; quit"
 
+
+fcs_compile:
+	$(VLIB) $(WORK)
+	$(VLOG) $(VLOG_OPT) $(FCS_SV_FILES) $(FCS_TB_FILES)
+
+fcs_sim: fcs_compile
+	$(VSIM) $(FCS_TOP)
+
+fcs_batch: fcs_compile
+	$(VSIM) -c $(FCS_TOP) -do "run -all; quit"
 
 clean:
 	@if exist work rmdir /s /q work
