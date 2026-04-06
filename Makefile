@@ -10,14 +10,14 @@ ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
 RTL = rtl
 TB = tb
 
-SV_FILES = \
+BUFFER_SV_FILES = \
 	$(RTL)/crossbar/voq_buffer_cixb2.sv \
 	$(RTL)/crossbar/fifo.v 
 
-TB_FILES = \
+BUFFER_TB_FILES = \
 	
 
-TOP = voq_buffer_cixb2
+BUFFER_TOP = voq_buffer_cixb2_tb
 
 FCS_SV_FILES = \
 	$(RTL)/fcs_control/FIFOs/packet_length/packet_length_fifo.v \
