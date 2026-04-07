@@ -5,20 +5,29 @@ VSIM = vsim
 VLOG_OPT = -timescale=1ns/1ps
 
 WORK = work
-# ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
-ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+
+# Altera library path for newest version of Quartus
+ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
+
+# Altera library path for older version of Quartus
+# ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+
 RTL = rtl
 TB = tb
+################################ CROSSBAR ################################
+CROSSBAR_SV_FILES = \
+	$(RTL)/crossbar/buffer/voq_buffer_cixb2.sv \
+	$(RTL)/crossbar/buffer/fifo.v 
 
-BUFFER_SV_FILES = \
-	$(RTL)/crossbar/voq_buffer_cixb2.sv \
-	$(RTL)/crossbar/fifo.v 
+CROSSBAR_TB_FILES = \
+	$(TB)/crossbar/buffer/voq_buffer_if.sv \
+	$(TB)/crossbar/buffer/voq_buffer_pkg.sv \
+	$(TB)/crossbar/buffer/voq_buffer_cixb2_tb.sv \
 
-BUFFER_TB_FILES = \
-	
+# tmp top, should be crossbar_tb.sv when crossbar is done
+CROSSBAR_TOP = voq_buffer_cixb2_tb
 
-BUFFER_TOP = voq_buffer_cixb2_tb
-
+############################# FCS CONTROL ################################
 FCS_SV_FILES = \
 	$(RTL)/fcs_control/FIFOs/packet_length/packet_length_fifo.v \
 	$(RTL)/fcs_control/FIFOs/packet_status/packet_status_fifo.v \
@@ -28,6 +37,8 @@ FCS_TB_FILES = \
 	$(TB)/crc_calculator_tb.sv
 
 FCS_TOP = crc_calculator_tb
+
+
 
 all: compile
 
@@ -56,6 +67,21 @@ fcs_sim: fcs_compile
 
 fcs_batch: fcs_compile
 	$(VSIM) -c $(FCS_TOP) -do "run -all; quit"
+
+
+crossbar_compile: clean
+	$(VLIB) $(WORK)
+	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
+	$(VLOG) $(VLOG_OPT) $(CROSSBAR_SV_FILES) $(CROSSBAR_TB_FILES)
+
+crossbar_sim: crossbar_compile
+	$(VSIM) -onfinish stop work.$(CROSSBAR_TOP) $(CROSSBAR_TOP)
+
+crossbar_batch: crossbar_compile
+	$(VSIM) -c $(CROSSBAR_TOP) -do "run -all; quit"
+
+crossbar_wave: crossbar_compile
+	$(VSIM) -onfinish stop work.$(CROSSBAR_TOP)  -do "add wave -r *; run -all" $(CROSSBAR_TOP)
 
 clean:
 	@if exist work rmdir /s /q work
