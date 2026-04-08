@@ -1,7 +1,8 @@
 module voq_buffer_cixb2 #(
-    parameter DATA_W = 8,
-    parameter PORTS = 4,
-    parameter FIFO_DEPTH = 4096  // enough for 2 packets of 1518 bytes
+    parameter int DATA_W = 8,
+    parameter int PORTS = 4,
+    parameter int FIFO_DEPTH = 4096,  // enough for 2 packets of 1518 bytes
+    parameter int OCC_WIDTH = $clog2(FIFO_DEPTH)
 )(
 
     input logic i_clk,
@@ -15,7 +16,7 @@ module voq_buffer_cixb2 #(
     output logic [PORTS*DATA_W-1:0] o_tx_data,
     output logic [PORTS-1:0] o_tx_ctrl,
 
-    output logic [PORTS*PORTS-1:0] o_occupancy,
+    output logic [PORTS*OCC_WIDTH-1:0] o_occupancy, // TODO WRONG
     output logic [PORTS*PORTS-1:0] o_full,
     output logic [PORTS*PORTS-1:0] o_empty
 );
@@ -26,7 +27,7 @@ module voq_buffer_cixb2 #(
     logic [DATA_W-1:0] fifo_rdata [PORTS][PORTS];
     logic fifo_empty [PORTS][PORTS];
     logic fifo_full [PORTS][PORTS];
-    logic [11:0] fifo_usedw [PORTS][PORTS];
+    logic [OCC_WIDTH-1:0] fifo_usedw [PORTS][PORTS];
 
     logic [PORTS*DATA_W-1:0] o_tx_data_r;
     logic [PORTS-1:0] o_tx_ctrl_r;
