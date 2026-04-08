@@ -5,6 +5,8 @@ module voq_buffer_cixb2_tb;
     parameter DATA_W = 8;
     parameter PORTS = 4;
 
+    localparam int 
+
     logic clk = 0;
 
     // interface and class instance
@@ -58,7 +60,7 @@ module voq_buffer_cixb2_tb;
 
     // Test 2: Multiple writes and reads
     task automatic test_multiple();
-    
+
 
     endtask
 
