@@ -1,4 +1,4 @@
-data_fifo	data_fifo_inst (
+src_mac_fifo	src_mac_fifo_inst (
 	.clock ( clock_sig ),
 	.data ( data_sig ),
 	.rdreq ( rdreq_sig ),

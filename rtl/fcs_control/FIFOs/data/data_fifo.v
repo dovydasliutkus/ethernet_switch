@@ -44,8 +44,7 @@ module data_fifo (
 	wrreq,
 	empty,
 	full,
-	q,
-	usedw);
+	q);
 
 	input	  clock;
 	input	[7:0]  data;
@@ -54,16 +53,13 @@ module data_fifo (
 	output	  empty;
 	output	  full;
 	output	[7:0]  q;
-	output	[11:0]  usedw;
 
 	wire  sub_wire0;
 	wire  sub_wire1;
 	wire [7:0] sub_wire2;
-	wire [11:0] sub_wire3;
 	wire  empty = sub_wire0;
 	wire  full = sub_wire1;
 	wire [7:0] q = sub_wire2[7:0];
-	wire [11:0] usedw = sub_wire3[11:0];
 
 	scfifo	scfifo_component (
 				.clock (clock),
@@ -73,20 +69,20 @@ module data_fifo (
 				.empty (sub_wire0),
 				.full (sub_wire1),
 				.q (sub_wire2),
-				.usedw (sub_wire3),
 				.aclr (),
 				.almost_empty (),
 				.almost_full (),
 				.eccstatus (),
-				.sclr ());
+				.sclr (),
+				.usedw ());
 	defparam
 		scfifo_component.add_ram_output_register = "OFF",
 		scfifo_component.intended_device_family = "MAX 10",
-		scfifo_component.lpm_numwords = 4096,
+		scfifo_component.lpm_numwords = 2048,
 		scfifo_component.lpm_showahead = "OFF",
 		scfifo_component.lpm_type = "scfifo",
 		scfifo_component.lpm_width = 8,
-		scfifo_component.lpm_widthu = 12,
+		scfifo_component.lpm_widthu = 11,
 		scfifo_component.overflow_checking = "ON",
 		scfifo_component.underflow_checking = "ON",
 		scfifo_component.use_eab = "ON";
@@ -103,7 +99,7 @@ endmodule
 // Retrieval info: PRIVATE: AlmostFullThr NUMERIC "-1"
 // Retrieval info: PRIVATE: CLOCKS_ARE_SYNCHRONIZED NUMERIC "0"
 // Retrieval info: PRIVATE: Clock NUMERIC "0"
-// Retrieval info: PRIVATE: Depth NUMERIC "4096"
+// Retrieval info: PRIVATE: Depth NUMERIC "2048"
 // Retrieval info: PRIVATE: Empty NUMERIC "1"
 // Retrieval info: PRIVATE: Full NUMERIC "1"
 // Retrieval info: PRIVATE: INTENDED_DEVICE_FAMILY STRING "MAX 10"
@@ -115,7 +111,7 @@ endmodule
 // Retrieval info: PRIVATE: RAM_BLOCK_TYPE NUMERIC "0"
 // Retrieval info: PRIVATE: SYNTH_WRAPPER_GEN_POSTFIX STRING "0"
 // Retrieval info: PRIVATE: UNDERFLOW_CHECKING NUMERIC "0"
-// Retrieval info: PRIVATE: UsedW NUMERIC "1"
+// Retrieval info: PRIVATE: UsedW NUMERIC "0"
 // Retrieval info: PRIVATE: Width NUMERIC "8"
 // Retrieval info: PRIVATE: dc_aclr NUMERIC "0"
 // Retrieval info: PRIVATE: diff_widths NUMERIC "0"
@@ -132,11 +128,11 @@ endmodule
 // Retrieval info: LIBRARY: altera_mf altera_mf.altera_mf_components.all
 // Retrieval info: CONSTANT: ADD_RAM_OUTPUT_REGISTER STRING "OFF"
 // Retrieval info: CONSTANT: INTENDED_DEVICE_FAMILY STRING "MAX 10"
-// Retrieval info: CONSTANT: LPM_NUMWORDS NUMERIC "4096"
+// Retrieval info: CONSTANT: LPM_NUMWORDS NUMERIC "2048"
 // Retrieval info: CONSTANT: LPM_SHOWAHEAD STRING "OFF"
 // Retrieval info: CONSTANT: LPM_TYPE STRING "scfifo"
 // Retrieval info: CONSTANT: LPM_WIDTH NUMERIC "8"
-// Retrieval info: CONSTANT: LPM_WIDTHU NUMERIC "12"
+// Retrieval info: CONSTANT: LPM_WIDTHU NUMERIC "11"
 // Retrieval info: CONSTANT: OVERFLOW_CHECKING STRING "ON"
 // Retrieval info: CONSTANT: UNDERFLOW_CHECKING STRING "ON"
 // Retrieval info: CONSTANT: USE_EAB STRING "ON"
@@ -146,7 +142,6 @@ endmodule
 // Retrieval info: USED_PORT: full 0 0 0 0 OUTPUT NODEFVAL "full"
 // Retrieval info: USED_PORT: q 0 0 8 0 OUTPUT NODEFVAL "q[7..0]"
 // Retrieval info: USED_PORT: rdreq 0 0 0 0 INPUT NODEFVAL "rdreq"
-// Retrieval info: USED_PORT: usedw 0 0 12 0 OUTPUT NODEFVAL "usedw[11..0]"
 // Retrieval info: USED_PORT: wrreq 0 0 0 0 INPUT NODEFVAL "wrreq"
 // Retrieval info: CONNECT: @clock 0 0 0 0 clock 0 0 0 0
 // Retrieval info: CONNECT: @data 0 0 8 0 data 0 0 8 0
@@ -155,7 +150,6 @@ endmodule
 // Retrieval info: CONNECT: empty 0 0 0 0 @empty 0 0 0 0
 // Retrieval info: CONNECT: full 0 0 0 0 @full 0 0 0 0
 // Retrieval info: CONNECT: q 0 0 8 0 @q 0 0 8 0
-// Retrieval info: CONNECT: usedw 0 0 12 0 @usedw 0 0 12 0
 // Retrieval info: GEN_FILE: TYPE_NORMAL data_fifo.v TRUE
 // Retrieval info: GEN_FILE: TYPE_NORMAL data_fifo.inc FALSE
 // Retrieval info: GEN_FILE: TYPE_NORMAL data_fifo.cmp FALSE

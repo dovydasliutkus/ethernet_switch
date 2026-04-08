@@ -31,6 +31,8 @@ CROSSBAR_TOP = voq_buffer_cixb2_tb
 FCS_SV_FILES = \
 	$(RTL)/fcs_control/FIFOs/packet_length/packet_length_fifo.v \
 	$(RTL)/fcs_control/FIFOs/packet_status/packet_status_fifo.v \
+	$(RTL)/fcs_control/FIFOs/dst_mac/dst_mac_fifo.v \
+	$(RTL)/fcs_control/FIFOs/src_mac/src_mac_fifo.v \
 	$(RTL)/fcs_control/crc_calculator.sv
 
 FCS_TB_FILES = \

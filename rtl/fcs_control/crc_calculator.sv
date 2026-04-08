@@ -9,7 +9,7 @@
 // 1. We assume that i_rx_ctrl behaves correctly (no glitches). However if a glitch were to happen it wouldn't 
 // cause system failure in the PAYLOAD stage, but it would crash if it happened in DST_MAC or SRC_MAC. As status
 // and length FIFOs are only written in PAYLOAD. TODO Maybe add writing to FIFOs in the global abort conditional
-// Micheal said not to worry about this.
+// Michael said not to worry about this.
 // 2. TODO Counter shouldn't exceed 1518 (max packet length in bytes). Implement to protect from overflow
 // 3. TODO top level has to make sure nothing is written into crc_calculator if data fifo is full
 // don't need to worry about crc fifos being full as they are sized to fit the maximum number of smallest data packets
@@ -28,9 +28,13 @@ module crc_calculator(
     // FIFO signals
     input   logic        i_length_ren,
     input   logic        i_status_ren,
+    input   logic        i_dstmac_ren,
+    input   logic        i_srcmac_ren,
 
     output  logic        o_length_empty,
-    output  logic        o_status_empty
+    output  logic        o_status_empty,
+    output  logic        o_dstmac_empty,
+    output  logic        o_srcmac_empty
     );
 
     typedef enum logic [1:0] {
@@ -47,11 +51,10 @@ module crc_calculator(
     logic [7:0]   byte_in;               // inverted or straight i_data fed to CRC
     logic calc_en, crc_valid;
 
-    logic [47:0]  dst_mac_n, src_mac_n;
+    logic [47:0]  dst_mac_int, src_mac_int, dst_mac_int_n, src_mac_int_n; // Internal mac address signals
 
     // FIFO signals
-    logic length_wen, status_wen;
-    // TODO regenerate FIFOs without full and usedw signals
+    logic length_wen, status_wen, dstmac_wen, srcmac_wen;
     packet_length_fifo u_length_fifo (
         .clock  (clk            ),
         .data   (counter        ),  // write: current byte count at end of frame
@@ -59,8 +62,7 @@ module crc_calculator(
         .rdreq  (i_length_ren   ),  // read enable: driven by Output Control
         .empty  (o_length_empty ),  // empty flag: for Output Control to know when it has something to read
         .full   (),
-        .q      (o_packet_length),
-        .usedw  ()
+        .q      (o_packet_length)
     );
 
     packet_status_fifo u_status_fifo (
@@ -70,24 +72,43 @@ module crc_calculator(
         .rdreq  (i_status_ren   ),  // read enable: driven by downstream consumer
         .empty  (o_status_empty ), 
         .full   (),  
-        .q      (o_valid        ),
-        .usedw  ()
+        .q      (o_valid        )
     );
+
+    dst_mac_fifo u_dst_mac_fifo (
+	.clock  ( clk ),
+	.data   ( dst_mac_int ),
+	.rdreq  ( i_dstmac_ren ),
+	.wrreq  ( dstmac_wen ),
+	.empty  ( o_dstmac_empty ),
+	.full   (),
+	.q      ( dst_mac )
+	);
+
+    src_mac_fifo u_src_mac_fifo (
+	.clock  ( clk ),
+	.data   ( src_mac_int ),
+	.rdreq  ( i_srcmac_ren ),
+	.wrreq  ( srcmac_wen ),
+	.empty  ( o_srcmac_empty ),
+	.full   (),
+	.q      ( src_mac )
+	);
 
     always_ff @(posedge clk) begin
         if (reset) begin
-            state       <= IDLE;
-            rem_reg     <= '0;
-            counter     <= '0;
-            dst_mac     <= '0;
-            src_mac     <= '0;
+            state           <= IDLE;
+            rem_reg         <= '0;
+            counter         <= '0;
+            dst_mac_int     <= '0;
+            src_mac_int     <= '0;
         end
         else begin
-            state       <= state_n;
-            rem_reg     <= rem_reg_n;
-            counter     <= counter_n;
-            dst_mac     <= dst_mac_n;
-            src_mac     <= src_mac_n;
+            state           <= state_n;
+            rem_reg         <= rem_reg_n;
+            counter         <= counter_n;
+            dst_mac_int     <= dst_mac_int_n;
+            src_mac_int     <= src_mac_int_n;
         end
     end
 
@@ -100,8 +121,10 @@ module crc_calculator(
         crc_valid   = 1'b0;
         length_wen  = 1'b0;
         status_wen  = 1'b0;
-        dst_mac_n   = dst_mac;
-        src_mac_n   = src_mac;
+        dstmac_wen  = 1'b0;
+        srcmac_wen  = 1'b0;
+        dst_mac_int_n   = dst_mac_int;
+        src_mac_int_n   = src_mac_int;
 
         case (state)
 
@@ -109,7 +132,7 @@ module crc_calculator(
         IDLE: begin
             if (i_rx_ctrl) begin
                 byte_in        = ~i_data;   // byte 0: inverted (first of the 4 CRC-preconditioned bytes)
-                dst_mac_n[7:0] = ~i_data;   // counter will be 1 after this cycle
+                dst_mac_int_n[7:0] = byte_in;   // counter will be 1 after this cycle
                 calc_en        = 1'b1;
                 counter_n      = 11'd1;     // byte 0 consumed this cycle
                 state_n        = DST_MAC;
@@ -123,11 +146,13 @@ module crc_calculator(
 
             if (counter < 6) begin
                 byte_in  = (counter < 4) ? ~i_data : i_data;  // bytes 1-3 inverted, 4-5 as-is
-                dst_mac_n[counter*8 +: 8] = byte_in;  // counter=1→[15:8], 2→[23:16] ... 5→[47:40]
+                dst_mac_int_n[counter*8 +: 8] = byte_in;  // counter=1→[15:8], 2→[23:16] ... 5→[47:40]
             end else begin
-                // counter=6: first byte of src_mac
-                src_mac_n[7:0] = i_data;
-                state_n        = SRC_MAC;
+                // Write dst_mac to the FIFO
+                dstmac_wen = 1'b1;
+                // counter=6: first byte of src_mac_int
+                src_mac_int_n[7:0]  = i_data;
+                state_n             = SRC_MAC;
             end
         end
 
@@ -139,8 +164,10 @@ module crc_calculator(
             byte_in   = i_data;
 
             if (counter < 12) begin
-                src_mac_n[(counter-6)*8 +: 8] = byte_in;  // counter=7→[15:8], 8→[23:16] ... 11→[47:40]
+                src_mac_int_n[(counter-6)*8 +: 8] = byte_in;  // counter=7→[15:8], 8→[23:16] ... 11→[47:40]
             end else begin
+                // Write src_mac to the FIFO
+                srcmac_wen = 1'b1;
                 // counter=12: EtherType byte 0, feed to CRC only, then move on
                 state_n = PAYLOAD;
             end
@@ -164,10 +191,11 @@ module crc_calculator(
         endcase
 
         // Global abort: PHY dropped rx_ctrl early
-        if (state != IDLE && !i_rx_ctrl) begin
-            state_n   = IDLE;
-            counter_n = '0;
-        end
+        // if (state != IDLE && !i_rx_ctrl) begin
+        //     state_n   = IDLE;
+        //     counter_n = '0;
+        // end
+        
         // Global abort: Packet length too long, write length and status for dump
         if (counter == 11'd1518) begin
             state_n   = IDLE;

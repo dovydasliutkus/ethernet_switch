@@ -19,7 +19,9 @@ module crc_calculator_tb;
 
     // FIFO read interface
     logic        i_length_ren, i_status_ren;
+    logic        i_dstmac_ren, i_srcmac_ren;
     logic        o_length_empty, o_status_empty;
+    logic        o_dstmac_empty, o_srcmac_empty;
 
     parameter packet_file_path = "tb/packet.txt";
 
@@ -34,8 +36,12 @@ module crc_calculator_tb;
         .o_valid         (o_valid),
         .i_length_ren    (i_length_ren),
         .i_status_ren    (i_status_ren),
+        .i_dstmac_ren    (i_dstmac_ren),
+        .i_srcmac_ren    (i_srcmac_ren),
         .o_length_empty  (o_length_empty),
-        .o_status_empty  (o_status_empty)
+        .o_status_empty  (o_status_empty),
+        .o_dstmac_empty  (o_dstmac_empty),
+        .o_srcmac_empty  (o_srcmac_empty)
     );
 
     initial clk = 0;
@@ -51,6 +57,7 @@ module crc_calculator_tb;
     // Values read back from FIFOs after each packet
     logic        captured_valid;
     logic [10:0] captured_packet_length;
+    logic [47:0] captured_dst_mac, captured_src_mac;
 
 // --------------------------------------------------------
 // read_packet_file : parse hex bytes from file, "---" separates packets
@@ -114,16 +121,16 @@ module crc_calculator_tb;
     endtask
 
 // --------------------------------------------------------
-// read_fifo_outputs : waits until both FIFOs are non-empty, then reads one entry.
-//   Altera sync FIFOs: rdreq on posedge N → data valid on posedge N+1.
+// read_fifo_outputs : waits until all four FIFOs are non-empty, then reads one entry each.
+//   Altera sync FIFOs (non-showahead): rdreq on posedge N → data valid on posedge N+1.
     task automatic read_fifo_outputs();
         // Wait for DUT to finish writing (FIFOs take 1 cycle after wrreq to update empty)
         @(posedge clk);
 
-        // Poll until both FIFOs have data (timeout after 20 cycles)
+        // Poll until all FIFOs have data (timeout after 20 cycles)
         begin : wait_loop
             int timeout = 0;
-            while (o_length_empty || o_status_empty) begin
+            while (o_length_empty || o_status_empty || o_dstmac_empty || o_srcmac_empty) begin
                 @(posedge clk);
                 timeout++;
                 if (timeout > 20) begin
@@ -133,20 +140,26 @@ module crc_calculator_tb;
             end
         end
 
-        // Pulse read enables for one cycle
+        // Pulse all read enables for one cycle
         @(negedge clk);
         i_length_ren = 1'b1;
         i_status_ren = 1'b1;
+        i_dstmac_ren = 1'b1;
+        i_srcmac_ren = 1'b1;
 
         // Data appears at q on the next posedge
         @(posedge clk);
         @(negedge clk);
         i_length_ren = 1'b0;
         i_status_ren = 1'b0;
+        i_dstmac_ren = 1'b0;
+        i_srcmac_ren = 1'b0;
         #1; // let outputs settle
 
         captured_packet_length = o_packet_length;
         captured_valid         = o_valid;
+        captured_dst_mac       = dst_mac;
+        captured_src_mac       = src_mac;
 
         // Return to IDLE before next packet
         repeat(2) @(posedge clk);
@@ -189,17 +202,17 @@ module crc_calculator_tb;
         end else
             $display("  PASS o_valid       : 1 (CRC OK)");
 
-        if (dst_mac !== exp_dst_mac) begin
-            $display("  FAIL dst_mac       : got %h, expected %h", dst_mac, exp_dst_mac);
+        if (captured_dst_mac !== exp_dst_mac) begin
+            $display("  FAIL dst_mac       : got %h, expected %h", captured_dst_mac, exp_dst_mac);
             pass = 0;
         end else
-            $display("  PASS dst_mac       : %h", dst_mac);
+            $display("  PASS dst_mac       : %h", captured_dst_mac);
 
-        if (src_mac !== exp_src_mac) begin
-            $display("  FAIL src_mac       : got %h, expected %h", src_mac, exp_src_mac);
+        if (captured_src_mac !== exp_src_mac) begin
+            $display("  FAIL src_mac       : got %h, expected %h", captured_src_mac, exp_src_mac);
             pass = 0;
         end else
-            $display("  PASS src_mac       : %h", src_mac);
+            $display("  PASS src_mac       : %h", captured_src_mac);
 
         if (captured_packet_length !== exp_o_packet_length) begin
             $display("  FAIL pkt_length    : got %0d, expected %0d", captured_packet_length, exp_o_packet_length);
@@ -220,6 +233,8 @@ module crc_calculator_tb;
         i_data       = 0;
         i_length_ren = 0;
         i_status_ren = 0;
+        i_dstmac_ren = 0;
+        i_srcmac_ren = 0;
 
         repeat(4) @(posedge clk);
         reset = 0;
