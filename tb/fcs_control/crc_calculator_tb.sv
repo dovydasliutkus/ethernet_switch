@@ -21,8 +21,7 @@ module crc_calculator_tb;
     logic        i_length_ren, i_status_ren;
     logic        o_length_empty, o_status_empty;
 
-    // TODO: Dovy this cannot be used by others. should use tb/packet.txt 
-    parameter packet_file_path = "E:/UserData/Desktop/Term2/fpga_for_comms/eth_switch/tb/packet.txt";
+    parameter packet_file_path = "tb/packet.txt";
 
     crc_calculator dut (
         .clk             (clk),
