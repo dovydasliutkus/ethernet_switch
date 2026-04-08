@@ -9,7 +9,6 @@ module voq_buffer_cixb2_tb;
 
     // interface and class instance
     voq_buffer_if #(.DATA_W(DATA_W), .PORTS(PORTS)) vif(.clk(clk));
-    
     voq_buffer_class drv;
 
     initial begin
@@ -27,11 +26,20 @@ module voq_buffer_cixb2_tb;
         .o_tx_ctrl(vif.tx_ctrl),
         .o_occupancy(vif.occupancy)
     );  
+
+    //////////////// Clock ///////////////////////
+    initial begin
+        forever begin
+            #5; 
+            clk = ~clk;
+        end
+    end
+
     //////////////// Test tasks ////////////////////
 
     // Test 1: Single write and read
     task automatic test_single();
-        logic [7:0] expected = 8'h0000AA00; // write to port 0, read from port 1
+        logic [7:0] expected = 8'h0000AA00; // from port 0 to port 1 (0, 1)
         logic [7:0] actual;
 
         drv.write(0,1,expected);
@@ -48,13 +56,13 @@ module voq_buffer_cixb2_tb;
             $display("PASS: single write/read");
     endtask
 
-    //////////////// Clock ///////////////////////
-    initial begin
-        forever begin
-            #5; 
-            clk = ~clk;
-        end
-    end
+    // Test 2: Multiple writes and reads
+    task automatic test_multiple();
+    
+
+    endtask
+
+
 
     //////////////// Run all tests ////////////////
     initial begin
