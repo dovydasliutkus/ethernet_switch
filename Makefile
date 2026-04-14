@@ -7,25 +7,31 @@ VLOG_OPT = -timescale=1ns/1ps
 WORK = work
 
 # Altera library path for newest version of Quartus
-# ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
+ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
 
 # Altera library path for older version of Quartus
-ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+# ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
 
 RTL = rtl
 TB = tb
 ################################ CROSSBAR ################################
 CROSSBAR_SV_FILES = \
 	$(RTL)/crossbar/buffer/voq_buffer_cixb2.sv \
-	$(RTL)/crossbar/buffer/fifo.v 
+	$(RTL)/crossbar/buffer/fifo.v \
+	$(RTL)/crossbar/FIFOs/pkt_len_fifo.v \
+	$(RTL)/crossbar/scheduler/drr_scheduler.sv \
+	$(RTL)/crossbar/crossbar_top.sv
 
 CROSSBAR_TB_FILES = \
-	$(TB)/crossbar/buffer/voq_buffer_if.sv \
-	$(TB)/crossbar/buffer/voq_buffer_pkg.sv \
-	$(TB)/crossbar/buffer/voq_buffer_cixb2_tb.sv \
+	$(TB)/crossbar/crossbar_top_tb.sv \
+
+
+# 	$(TB)/crossbar/buffer/voq_buffer_if.sv \
+# 	$(TB)/crossbar/buffer/voq_buffer_pkg.sv \
+# 	$(TB)/crossbar/buffer/voq_buffer_cixb2_tb.sv \
 
 # tmp top, should be crossbar_tb.sv when crossbar is done
-CROSSBAR_TOP = voq_buffer_cixb2_tb
+CROSSBAR_TOP = crossbar_top_tb
 
 ############################# FCS CONTROL ################################
 FCS_SV_FILES = \
@@ -80,10 +86,10 @@ crossbar_sim: crossbar_compile
 	$(VSIM) -onfinish stop work.$(CROSSBAR_TOP) $(CROSSBAR_TOP)
 
 crossbar_batch: crossbar_compile
-	$(VSIM) -c $(CROSSBAR_TOP) -do "run -all; quit"
+	$(VSIM) -c $(CROSSBAR_TOP) -do "run -all; quit" -l $(CROSSBAR_TOP).log
 
 crossbar_wave: crossbar_compile
-	$(VSIM) -onfinish stop work.$(CROSSBAR_TOP)  -do "add wave -r *; run -all" $(CROSSBAR_TOP)
+	$(VSIM) -onfinish stop work.$(CROSSBAR_TOP)  -do "add wave -r *; run -all"
 
 clean:
 	@if exist work rmdir /s /q work
