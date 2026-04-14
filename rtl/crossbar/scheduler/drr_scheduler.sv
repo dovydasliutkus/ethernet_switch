@@ -91,7 +91,7 @@ module drr_scheduler #(
     // write + shadow FIFO push
     logic [3:0] accepting;
 
-    always_ff @(posedge i_clk or negedge i_reset) begin
+    always_ff @(posedge i_clk) begin // amal: changed this to synchronous
         if (!i_reset) begin
             accepting <= '0;
         end else begin
@@ -210,5 +210,11 @@ module drr_scheduler #(
             endcase
         end
     end
+
+    // // amal: debugging
+    // always @(posedge i_clk) begin
+    //     $display("[%0t] SCHED %0d | rr_ptr=%0d | len_empty=%b | deficit=%0d",
+    //         $time, PORT_ID, rr_ptr, len_empty[rr_ptr], deficit[rr_ptr]);
+    // end
 endmodule
    

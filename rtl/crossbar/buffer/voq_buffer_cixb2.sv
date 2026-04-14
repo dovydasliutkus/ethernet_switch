@@ -16,7 +16,7 @@ module voq_buffer_cixb2 #(
     output logic [PORTS*DATA_W-1:0] o_tx_data,
     output logic [PORTS-1:0] o_tx_ctrl,
 
-    output logic [PORTS*OCC_WIDTH-1:0] o_occupancy, // TODO WRONG
+    output logic [PORTS*PORTS*OCC_WIDTH-1:0] o_occupancy,
     output logic [PORTS*PORTS-1:0] o_full,
     output logic [PORTS*PORTS-1:0] o_empty
 );
@@ -79,7 +79,7 @@ module voq_buffer_cixb2 #(
 
         for (int i = 0; i < PORTS; i++) begin
             for (int j = 0; j < PORTS; j++) begin
-                o_occupancy[i*PORTS + j] = fifo_usedw[i][j];
+                o_occupancy[(i*PORTS + j)*OCC_WIDTH +: OCC_WIDTH] = fifo_usedw[i][j];
                 o_full[i*PORTS + j] = fifo_full[i][j];
                 o_empty[i*PORTS + j] = fifo_empty[i][j];
             end
