@@ -23,7 +23,14 @@ module crossbar_top #(
 
     logic [PORTS*PORTS-1:0] write_enable;
     logic [PORTS*PORTS-1:0] read_enable;
+
+    logic [PORTS*PORTS-1:0] full;
+    logic [PORTS*PORTS-1:0] empty;
     logic [PORTS*PORTS*OCC_WIDTH-1:0] occupancy;
+
+
+    logic [PORTS-1:0] buffer_wr_en [PORTS-1:0];
+    logic [PORTS-1:0] buffer_rd_en [PORTS-1:0];
 
     always_comb begin
         for (int i = 0; i < PORTS; i++) begin
@@ -54,17 +61,16 @@ module crossbar_top #(
     );
  
 
-
     genvar i;
 
     logic [OCC_WIDTH-1:0] usedw_col [PORTS][PORTS]; // [j][i]
-    logic                 full_col  [PORTS][PORTS]; // [j][i]
-    logic                 empty_col [PORTS][PORTS]; // [j][i]
+    logic [PORTS-1:0]     full_col [PORTS]; // [j][i]
+    logic [PORTS-1:0]     empty_col [PORTS]; // [j][i]
 
     always_comb begin
         for (int i = 0; i < PORTS; i++) begin
             for (int j = 0; j < PORTS; j++) begin
-                int idx = i*PORTS + j;
+                automatic int idx = i*PORTS + j;
                 // transpose: [i][j] becomes [j][i]
                 usedw_col[j][i] = occupancy[idx*OCC_WIDTH +: OCC_WIDTH];
                 full_col[j][i]  = full[idx];
@@ -73,8 +79,7 @@ module crossbar_top #(
         end
     end
 
-    logic [PORTS-1:0] buffer_wr_en [PORTS-1:0];
-    logic [PORTS-1:0] buffer_rd_en [PORTS-1:0];
+
     generate
         for (i = 0; i < PORTS; i++) begin
                 drr_scheduler # (.PORT_ID(i), .MAX_PKT_SIZE(MAX_PKT_SIZE),
@@ -84,7 +89,7 @@ module crossbar_top #(
                         .i_reset(i_rst), // done
                         .i_pkt_valid(i_pkt_valid), // done
                         .i_dst_port(i_dst_port), // done, temporary
-                        .i_pkt_len(i_pkt_len[i]), // done
+                        .i_pkt_len(i_pkt_len), // done
                         .i_buffer_usedw(usedw_col[i]),
                         .i_buffer_full(full_col[i]),
                         .i_buffer_empty(empty_col[i]),

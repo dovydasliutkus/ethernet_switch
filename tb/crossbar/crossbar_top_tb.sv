@@ -31,66 +31,28 @@ module crossbar_top_tb;
     // clock
     always #5 clk = ~clk;
 
-    // clear inputs
-    task clear_inputs();
-        i_data = '0;
-        i_pkt_valid = '0;
-        for (int i = 0; i < PORTS; i++) begin
-            i_dst_port[i] = '0;
-            i_pkt_len[i]  = '0;
-        end
+
+    task automatic simple_test();
+
+        i_data = 32'h000000aa; // data on input port 0
+        i_pkt_valid = 4'b0001; // for input port 0
+        i_dst_port[0] = 4'b0001; // to port 0
+        i_pkt_len[0] = 8; // packet length from input port 0
+
+        repeat(40) @(posedge clk);
+
     endtask
 
-    ////////////// OUTPUT MONITOR ///////////////7
-    always @(posedge clk) begin
-        if (o_tx_ctrl != 0) begin
-            $display("[%0t] OUTPUT:", $time);
-            for (int j = 0; j < PORTS; j++) begin
-                if (o_tx_ctrl[j]) begin
-                    $display("  Port %0d -> Data = %h",
-                        j, o_tx_data[j*DATA_W +: DATA_W]);
-                end
-            end
-        end
-    end
 
     initial begin
         clk = 0;
         rst = 0;
-        clear_inputs();
 
-        // reset
-        repeat (5) @(posedge clk);
-        rst = 1;
+        repeat(5) @(posedge clk);
+        rst = 1; // release reset
 
-        $display("[%0t] Starting packet: input 0 -> output 2, length = 4", $time);
+        simple_test();
 
-        // TEST: Input 0 -> Output 2
-        i_pkt_len[0]  = 4;
-        i_dst_port[0] = 4'b0100; // output 2
-
-        // send 4 bytes
-        for (int k = 0; k < 4; k++) begin
-            @(posedge clk);
-            i_pkt_valid[0] = 1;
-            i_data[0*DATA_W +: DATA_W] = 8'hA0 + k;
-
-            $display("[%0t] INPUT: port 0 sent %h",
-                $time, 8'hA0 + k);
-        end
-
-        // end of packet
-        @(posedge clk);
-        i_pkt_valid[0] = 0;
-        i_data = '0;
-
-        $display("[%0t] Packet finished sending", $time);
-
-        // wait for a while for the waveform
-        repeat (30) @(posedge clk);
-
-        $display("[%0t] Simulation done", $time);
         $finish;
     end
-
 endmodule

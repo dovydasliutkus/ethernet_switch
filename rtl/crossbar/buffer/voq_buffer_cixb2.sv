@@ -113,6 +113,9 @@ module voq_buffer_cixb2 #(
         if (!i_rst) begin
             o_tx_data_r  <= '0;
             o_tx_ctrl_r <= '0;
+            o_occupancy <= '0;
+            o_full <= '0;
+            o_empty <= '0;
         end else begin
             o_tx_data_r  <= o_tx_data_next;
             o_tx_ctrl_r <= o_tx_ctrl_next;

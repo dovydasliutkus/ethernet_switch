@@ -21,11 +21,13 @@ CROSSBAR_SV_FILES = \
 	$(RTL)/crossbar/buffer/fifo.v \
 	$(RTL)/crossbar/FIFOs/pkt_len_fifo.v \
 	$(RTL)/crossbar/scheduler/drr_scheduler.sv \
+	$(RTL)/crossbar/crossbar_top.sv \
 
 CROSSBAR_TB_FILES = \
 	$(TB)/crossbar/buffer/voq_buffer_if.sv \
 	$(TB)/crossbar/buffer/voq_buffer_pkg.sv \
 	$(TB)/crossbar/buffer/voq_buffer_cixb2_tb.sv \
+	$(TB)/crossbar/crossbar_top_tb.sv \
 
 # INCLUDE_FILES = \
 # 	$(TB)/schedueler/test_sequences.svh \
@@ -34,7 +36,7 @@ CROSSBAR_TB_FILES = \
 
 
 # tmp top, should be crossbar_tb.sv when crossbar is done
-CROSSBAR_TOP = voq_buffer_cixb2_tb
+CROSSBAR_TOP = crossbar_top_tb
 
 ################################ SCHEDULER ################################
 SCHEDULER_SV_FILES = \
