@@ -5,15 +5,6 @@
 // 2. Calculates the ramainder rem[M(X)/G(X)]
 // =============================================================================
 
-// Notes
-// 1. We assume that i_rx_ctrl behaves correctly (no glitches). However if a glitch were to happen it wouldn't 
-// cause system failure in the PAYLOAD stage, but it would crash if it happened in DST_MAC or SRC_MAC. As status
-// and length FIFOs are only written in PAYLOAD. TODO Maybe add writing to FIFOs in the global abort conditional
-// Michael said not to worry about this.
-// 2. TODO Counter shouldn't exceed 1518 (max packet length in bytes). Implement to protect from overflow
-// 3. TODO top level has to make sure nothing is written into crc_calculator if data fifo is full
-// don't need to worry about crc fifos being full as they are sized to fit the maximum number of smallest data packets
-
 module crc_calculator(
     input   logic        clk,
     input   logic        reset,      // synchronous active-high
