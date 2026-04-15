@@ -88,21 +88,6 @@ module voq_buffer_cixb2 #(
     end
     ///////////////////////////////////////////////////
 
-    ///////////////// Output data//////////////////////
-    // todo: this doesn't work because for scfifo q is valid on the next cycle after rdreq
-    // always_comb begin
-    //     // default outputs
-    //     o_tx_data_next  = 8'b0;
-    //     o_tx_ctrl_next = 4'b0;
-    //     for (int j = 0; j < PORTS; j++) begin
-    //         for (int i = 0; i < PORTS; i++) begin
-    //             if (i_read_enable[i*PORTS + j] && !fifo_empty[i][j]) begin
-    //                 o_tx_data_next[j*DATA_W +: DATA_W] = fifo_rdata[i][j];
-    //                 o_tx_ctrl_next[j] = 1'b1;
-    //             end
-    //         end
-    //     end
-    // end
     logic [PORTS*PORTS-1:0] read_enable_d;
 
     always_ff @(posedge i_clk) begin

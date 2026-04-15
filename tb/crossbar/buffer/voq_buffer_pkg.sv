@@ -27,7 +27,7 @@ package voq_buffer_pkg;
         //////////////// Write task //////////////////
         task automatic write(input int i, input int j, input byte data);
             vif.data = '0;
-            vif.data[i*DATA_W +: DATA_W] = data;
+            vif.data[j*DATA_W +: DATA_W] = data;
             vif.write_enable = 1 << (i*PORTS+j);
 
             @(vif.cb);
