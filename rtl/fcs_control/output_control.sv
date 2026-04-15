@@ -34,6 +34,10 @@ module output_control (
     typedef enum logic [1:0] {MAC_IDLE, MAC_REQ, MAC_WAIT} mac_state_t;
     mac_state_t mac_state;
 
+    logic [1:0] arb_port;
+    logic       arb_found;
+    logic [1:0] p;
+
     // Internal state
     logic [1:0]  rr_ptr;
     logic [1:0]  sel_port;       // port currently going through MAC learner
@@ -119,9 +123,6 @@ module output_control (
     //   !i_status_empty[p] && !busy[p] (non empty status FIFO & not busy)
     // Only valid when mac_state == MAC_IDLE.
     // ----------------------------------------------------------------
-    logic [1:0] arb_port;
-    logic       arb_found;
-    logic [1:0] p;
 
     always_comb begin
         arb_port  = '0;

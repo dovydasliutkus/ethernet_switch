@@ -79,7 +79,7 @@ module packet_length_fifo (
 		scfifo_component.add_ram_output_register = "OFF",
 		scfifo_component.intended_device_family = "MAX 10",
 		scfifo_component.lpm_numwords = 32,
-		scfifo_component.lpm_showahead = "OFF",
+		scfifo_component.lpm_showahead = "ON",
 		scfifo_component.lpm_type = "scfifo",
 		scfifo_component.lpm_width = 11,
 		scfifo_component.lpm_widthu = 5,

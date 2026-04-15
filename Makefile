@@ -47,17 +47,35 @@ SCHEDULER_TB_FILES = \
 SCHEDULER_TOP = tb_drr_scheduler
 
 ############################# FCS CONTROL ################################
-FCS_SV_FILES = \
+# Test for crc_calculator
+CRC_SV_FILES = \
 	$(RTL)/fcs_control/FIFOs/packet_length/packet_length_fifo.v \
 	$(RTL)/fcs_control/FIFOs/packet_status/packet_status_fifo.v \
 	$(RTL)/fcs_control/FIFOs/dst_mac/dst_mac_fifo.v \
 	$(RTL)/fcs_control/FIFOs/src_mac/src_mac_fifo.v \
 	$(RTL)/fcs_control/crc_calculator.sv
 
-FCS_TB_FILES = \
+CRC_TB_FILES = \
 	$(TB)/fcs_control/crc_calculator_tb.sv
 
-FCS_TOP = crc_calculator_tb
+CRC_TOP = crc_calculator_tb
+
+# Test for full fcs_control module
+FCS_SV_FILES = \
+	$(RTL)/fcs_control/FIFOs/packet_length/packet_length_fifo.v \
+	$(RTL)/fcs_control/FIFOs/packet_status/packet_status_fifo.v \
+	$(RTL)/fcs_control/FIFOs/data/data_fifo.v \
+	$(RTL)/fcs_control/FIFOs/dst_mac/dst_mac_fifo.v \
+	$(RTL)/fcs_control/FIFOs/src_mac/src_mac_fifo.v \
+	$(RTL)/fcs_control/crc_calculator.sv \
+	$(RTL)/fcs_control/output_control.sv \
+	$(RTL)/fcs_control/fcs_control.sv \
+
+
+FCS_TB_FILES = \
+	$(TB)/fcs_control/fcs_control_tb.sv
+
+FCS_TOP = fcs_control_tb
 
 all: compile
 
@@ -76,6 +94,18 @@ batch: compile
 	$(VSIM) -c $(TOP) -do "run -all; quit"
 
 
+# Test for crc_calculator
+crc_compile:
+	$(VLIB) $(WORK)
+	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
+	$(VLOG) $(VLOG_OPT) $(CRC_SV_FILES) $(CRC_TB_FILES)
+
+crc_sim: crc_compile
+	$(VSIM) $(CRC_TOP)
+
+crc_batch: crc_compile
+	$(VSIM) -c $(CRC_TOP) -do "run -all; quit"
+# Test for full fcs_control module
 fcs_compile:
 	$(VLIB) $(WORK)
 	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
