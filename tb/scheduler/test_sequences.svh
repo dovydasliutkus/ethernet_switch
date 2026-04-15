@@ -96,12 +96,12 @@ task automatic run_test_6();
     pkt_valid[0] = 1'b1;
     @(posedge clk); #1;    // pkt_start
     @(posedge clk); #1;    // accepting latched
-    count_cycles_high(pkt_len - 1, buffer_wr_en, 0, wr_count);
+    count_cycles_high(pkt_len, buffer_wr_en, 0, wr_count);
     pkt_valid[0] = 1'b0;
     @(posedge clk); #1;
     if (buffer_wr_en[0] !== 1'b0) fail("buffer_wr_en[0] still high after packet ended");
 
-    if (wr_count == pkt_len - 1)
+    if (wr_count == pkt_len)
         pass($sformatf("buffer_wr_en[0] high for correct duration (%0d cycles)", wr_count));
     else
         fail($sformatf("buffer_wr_en[0] high for %0d cycles, expected %0d", wr_count, pkt_len - 1));

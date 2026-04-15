@@ -7,10 +7,11 @@ VLOG_OPT = -timescale=1ns/1ps
 WORK = work
 
 # Altera library path for newest version of Quartus
-ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
+# ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
 
 # Altera library path for older version of Quartus
-# ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+
 
 RTL = rtl
 TB = tb
@@ -34,6 +35,16 @@ CROSSBAR_TB_FILES = \
 
 # tmp top, should be crossbar_tb.sv when crossbar is done
 CROSSBAR_TOP = voq_buffer_cixb2_tb
+
+################################ SCHEDULER ################################
+SCHEDULER_SV_FILES = \
+	$(RTL)/crossbar/scheduler/drr_scheduler.sv \
+	$(RTL)/crossbar/FIFOs/pkt_len_fifo.v
+
+SCHEDULER_TB_FILES = \
+	$(TB)/scheduler/tb_drr_scheduler.sv \
+
+SCHEDULER_TOP = tb_drr_scheduler
 
 ############################# FCS CONTROL ################################
 FCS_SV_FILES = \
@@ -90,6 +101,22 @@ crossbar_batch: crossbar_compile
 
 crossbar_wave: crossbar_compile
 	$(VSIM) -onfinish stop work.$(CROSSBAR_TOP)  -do "add wave -r *; run -all"
+
+# ---
+
+scheduler_compile:
+	$(VLIB) $(WORK)
+	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
+	$(VLOG) $(VLOG_OPT) $(SCHEDULER_SV_FILES) $(SCHEDULER_TB_FILES)
+
+scheduler_sim: scheduler_compile
+	$(VSIM) $(SCHEDULER_TOP)
+
+scheduler_batch: scheduler_compile
+	$(VSIM) -c $(SCHEDULER_TOP) -do "run -all; quit"
+
+scheduler_wave: scheduler_compile
+	$(VSIM) -onfinish stop work.$(SCHEDULER_TOP)  -do "add wave -r *; run -all"
 
 clean:
 	@if exist work rmdir /s /q work
