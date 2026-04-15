@@ -2,8 +2,7 @@
 // File        : drr_schedueler.sv
 // Description : Scheduler module implementing Deficit Round-Robin
 // =============================================================================
-// 1. TODO: add i_ and o_ to inputs and outputs
-// 2. TODO: remove tx_ctrl
+// 1. TODO: add a safety feature in case i_pkt_valid goes low mid transaction
 
 module drr_scheduler #(
     parameter int PORT_ID       = 0,                    // which output port scheduler manages (0-3)
@@ -90,28 +89,27 @@ module drr_scheduler #(
 
     // write + shadow FIFO push
     logic [3:0] accepting;
-
-    always_ff @(posedge i_clk) begin // amal: changed this to synchronous
-        if (!i_reset) begin
-            accepting <= '0;
-        end else begin
-            for (int i = 0; i < 4; i++) begin
-                if (pkt_start[i]) begin
-                    accepting[i] <= i_dst_port[i][PORT_ID] // destination us?
-                                & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) // room for whole packet?
-                                & ~i_buffer_full[i] // make sure occ = 0 isn't bcs full
-                                & ~len_full[i]; // room in shadow fifo?
-                end else if (!i_pkt_valid[i]) begin
-                    accepting[i] <= 1'b0;
-                end
-            end
+    logic [3:0] will_accept;
+    
+    always_comb begin
+        for (int i = 0; i < 4; i++) begin
+            will_accept[i] = i_pkt_valid[i] 
+                           & i_dst_port[i][PORT_ID] 
+                           & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) 
+                           & ~i_buffer_full[i] 
+                           & ~len_full[i];
         end
+    end
+
+    always_ff @(posedge i_clk or negedge i_reset) begin
+        if (!i_reset) accepting <= '0;
+        else          accepting <= will_accept; // to make sure wr_en doesnt go low mid transaction
     end
 
     always_comb begin
         for (int i = 0; i < 4; i++) begin
-            o_buffer_wr_en[i] = i_pkt_valid[i] & accepting[i];
-            len_wr_en[i]    = pkt_start[i] & accepting[i];  // push length once on first byte
+            o_buffer_wr_en[i] = (pkt_start[i] & will_accept[i]) | (i_pkt_valid[i] & accepting[i]);
+            len_wr_en[i]    = pkt_start[i] & will_accept[i];  // push length once on first byte
         end
     end
 

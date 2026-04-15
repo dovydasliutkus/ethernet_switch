@@ -4,28 +4,20 @@
 // Description : Testbench for scheduler module
 // =============================================================================
 // TODO:
-// TEST 1: er alle outputs nul efter reset
-// Remove ctrl signal from Test 1:
-// TEST 2: correct destination accepted
-// TEST 3: wrong destination rejected (port-id in destport changed)
-// TEST 4: full FIFO rejects packet
-// TEST 5: insufficient space, packet stadig rejects
-// TEST 6: checks accepting catches on correctly for active signal
-// TEST 7: read fires for exactly pkt_len cycles
-// TEST 8: -------
-// TEST 9: FIFO pushes exactly twice for back-to-back packets
-// TEST 10: byte fairness between 64-byte queue and 1518 byte queue
-// TEST 11: back-to-back packets from same queue
-// TEST 12: rr alternation between two active queues
-// TEST 13: no spurious reads on empty FIFOs
-// TEST 14: double check PORT_ID
+// ugh set up the uvm thing later
+// randomized packets later too
+// packet_len and input port should be variable
+// TEST 10: back-to-back packets from same queue
+// TEST 11: rr alternation between two active queues
+// TEST 12: no spurious reads on empty FIFOs
+// TEST 13: double check PORT_ID
 
 module tb_drr_scheduler;
 
     // ---------------------------------------------------
     // Parameters
     // ---------------------------------------------------
-    localparam int PORT_ID      = 0;
+    localparam int PORT_ID      = 2;
     localparam int MAX_PKT_SIZE = 1518;
     localparam int LEN_WIDTH    = $clog2(MAX_PKT_SIZE);
     localparam int FIFO_DEPTH   = 4096;
@@ -50,8 +42,6 @@ module tb_drr_scheduler;
     logic [3:0]               buffer_wr_en;       
     logic [3:0]               buffer_rd_en;   
 
-    logic                     o_tx_ctrl;
-
     // ---------------------------------------------------
     // DUT instantiation
     // ---------------------------------------------------
@@ -66,7 +56,7 @@ module tb_drr_scheduler;
         .i_reset         (reset),
         .i_pkt_valid     (pkt_valid),
         .i_dst_port      (dst_port),
-        .i_pkt_len     (i_pkt_len),
+        .i_pkt_len       (i_pkt_len),
         .i_buffer_usedw  (buffer_usedw),
         .i_buffer_full   (buffer_full),
         .i_buffer_empty  (buffer_empty),
@@ -94,7 +84,7 @@ module tb_drr_scheduler;
     end
 
     // updating fifo counts
-    always_ff @(posedge clk) begin
+    always @(posedge clk) begin
         for (int i = 0; i < 4; i++) begin
             if (buffer_wr_en[i] && !buffer_full[i])
                 fifo_count[i] <= fifo_count[i] + 1;
@@ -110,87 +100,68 @@ module tb_drr_scheduler;
     int pass_count;
     int fail_count;
 
-    task automatic pass(input string msg);
-        $display("  [PASS] T%0d: %s", test_num, msg);
-        pass_count++;
-    endtask
-
-    task automatic fail(input string msg);
-        $display("  [FAIL] T%0d: %s", test_num, msg);
-        fail_count++;
-    endtask
-
     // ---------------------------------------------------
     // Helper tasks
     // ---------------------------------------------------    
-
-    task automatic do_reset();
-        reset = 0;
-        pkt_valid = '0;
-
-        for (int i = 0; i < 4; i++) begin
-            dst_port[i] = '0;
-            i_pkt_len[i] = '0;
-            fifo_count[i] = 0;
-        end 
-
-        @(posedge clk); #1;
-        @(posedge clk); #1;
-        reset = 1;
-        @(posedge clk); #1;
-    endtask
-
-    // drive packet from input port src, destined for dst, for pkt_len cycles
-    task automatic drive_packet(
-        input int src,
-        input int dst,
-        input int pkt_len
-    );
-        dst_port[src] = 4'(1 << dst);
-        i_pkt_len[src] = LEN_WIDTH'(pkt_len);
-        pkt_valid[src] = 1'b1;
-        repeat (pkt_len) @(posedge clk);
-        #1;
-        dst_port[src] = '0;
-        i_pkt_len[src] = '0;
-        pkt_valid[src] = 1'b0; 
-    endtask
-
-    task automatic wait_for(
-        input int       max_cycles,
-        input string    signal_name,
-        ref logic       sig
-    );
-        int i;
-        for (i = 0; i < max_cycles; i++) begin
-            if (sig) break;
-            @(posedge clk); #1;
-        end 
-
-        if (i == max_cycles)
-            $display("  [WARN] T%0d: %s never went high in %0d cycles", test_num, signal_name, max_cycles);
-    endtask
+    `include "helper_tasks.svh"
 
     // ---------------------------------------------------
     // TESTING TIME!!!!!!!!!!!!
-    // --------------------------------------------------- 
+    // ---------------------------------------------------
+    `include "test_sequences.svh"
+
     initial begin
         pass_count = 0;
         fail_count = 0;
         test_num   = 0;
 
-        do_reset();
-
-        // ---------------------------------------------------
         // T1: Reset state: all outputs must be zero after reset
-        // --------------------------------------------------- 
-
         test_num = 1;
         $display("\nT%0d: Reset state", test_num);
-        if (buffer_wr_en !== 4'b0000) fail("buffer_wr_en not zero after reset");
-        else                           pass("buffer_wr_en zero after reset");
-        if (buffer_rd_en !== 4'b0000) fail("buffer_rd_en not zero after reset");
-        else                           pass("buffer_rd_en zero after reset");
+        run_test_1();
+
+        // T2: Packet adressed to correct port gets accepted
+        test_num = 2;
+        $display("\nT%0d: Packet to correct port accepted", test_num);
+        run_test_2();
+        
+        // T3: Packet adressed to WRONG port gets ignored
+        test_num = 3;
+        $display("\nT%0d: Packet to wrong port rejected", test_num);
+        run_test_3();
+
+        // T4: Packet dropped when data FIFO is full
+        test_num = 4; 
+        $display("\nT%0d: Packet dropped when FIFO full", test_num);
+        run_test_4();
+
+        // T5: Packet dropped when not enough space for whole packet
+        test_num = 5; 
+        $display("\nT%0d: Packet dropped when insufficient space", test_num);
+        run_test_5();
+
+        // T6: write stays high for entire packet duration
+        test_num = 6; 
+        $display("\nT%0d: buffer_wr_en held high for entire packet", test_num);
+        run_test_6();
+
+        // T7: Single queue, DRR read
+        test_num = 7;
+        $display("\nT%0d: DRR read fires for correct number of cycles", test_num);
+        run_test_7();
+
+        // T8: len_wr_en only fires once
+        test_num = 8;
+        $display("\nT%0d: len_wr_en pulses only once per packet (rising edge detection)", test_num);
+        run_test_8();
+
+        // T9: DRR fairness, two queues, small (64) vs large packets (1518)
+        test_num = 9;
+        $display("\nT%0d: DRR Fairness (Small vs Large)", test_num);
+        run_test_9();
+            
+        $finish;
+
     end
 
 endmodule
