@@ -19,6 +19,7 @@ module output_control (
 
     // MAC learner interface (shared, one request at a time)
     output  logic        o_valid,
+    output  logic [3:0]  o_src_port,  // one-hot source port for split-horizon
     output  logic [47:0] o_src_mac,
     output  logic [47:0] o_dst_mac,
     input   logic        i_done,
@@ -141,6 +142,7 @@ module output_control (
     // ----------------------------------------------------------------
     always_comb begin
         o_valid      = 1'b0;
+        o_src_port   = '0;
         o_src_mac    = '0;
         o_dst_mac    = '0;
         o_status_ren = '0;
@@ -161,9 +163,10 @@ module output_control (
 
             MAC_REQ: begin
                 // Valid path: assert MAC learner request for one cycle
-                o_valid   = 1'b1;
-                o_src_mac = i_src_mac[sel_port];
-                o_dst_mac = i_dst_mac[sel_port];
+                o_valid    = 1'b1;
+                o_src_port = 4'b0001 << sel_port;
+                o_src_mac  = i_src_mac[sel_port];
+                o_dst_mac  = i_dst_mac[sel_port];
             end
 
             MAC_WAIT: begin

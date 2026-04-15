@@ -10,6 +10,7 @@ module fcs_control(
     input   logic [3:0]  i_dst_port,
     input   logic        i_done,
     output  logic        o_valid,
+    output  logic [3:0]  o_src_port,
     output  logic [47:0] o_dst_mac,
     output  logic [47:0] o_src_mac,
 
@@ -96,6 +97,7 @@ module fcs_control(
         .o_datafifo_ren  ( w_datafifo_ren  ),
         // MAC learner
         .o_valid         ( o_valid         ),
+        .o_src_port      ( o_src_port      ),
         .o_src_mac       ( o_src_mac       ),
         .o_dst_mac       ( o_dst_mac       ),
         .i_done          ( i_done          ),
