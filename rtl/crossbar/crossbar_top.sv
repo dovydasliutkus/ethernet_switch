@@ -34,18 +34,8 @@ module crossbar_top #(
     logic [PORTS-1:0] buffer_full [PORTS];
     logic [PORTS-1:0] buffer_empty [PORTS];
 
-    // // Concatenate read and write enable from each scheduler
-    // assign write_enable = {buffer_wr_en[3], buffer_wr_en[2], buffer_wr_en[1], buffer_wr_en[0]};
-    // assign read_enable = {buffer_rd_en[3], buffer_rd_en[2], buffer_rd_en[1], buffer_rd_en[0]};
-
-    always_comb begin
-        for (int i = 0; i < PORTS; i++) begin          // input port
-            for (int j = 0; j < PORTS; j++) begin      // output port
-                write_enable[i*PORTS + j] = buffer_wr_en[i][j];
-                read_enable[i*PORTS + j]  = buffer_rd_en[i][j];
-            end
-        end
-    end
+    assign write_enable = {buffer_wr_en[3], buffer_wr_en[2], buffer_wr_en[1], buffer_wr_en[0]};
+    assign read_enable  = {buffer_rd_en[3], buffer_rd_en[2], buffer_rd_en[1], buffer_rd_en[0]}; 
 
     voq_buffer_cixb2  #(.DATA_W(DATA_W), .PORTS(PORTS), .FIFO_DEPTH(FIFO_DEPTH)
     ) u_voq_buffer_cixb2 (
@@ -74,14 +64,9 @@ module crossbar_top #(
     end
 
     // Extract full and empty signals for each buffer
-    always_comb begin
-        for (int i = 0; i < PORTS; i++) begin
-            for (int j = 0; j < PORTS; j++) begin
-                buffer_full[i][j]  = full[i*PORTS + j];
-                buffer_empty[i][j] = empty[i*PORTS + j];
-            end
-        end
-    end
+    assign buffer_full[0] = 
+
+
     ////////////////// Scheduler instantiation //////////////////////
     // Generates four schedulers, one for each output port
     // Signals

@@ -5,8 +5,6 @@ module voq_buffer_cixb2_tb;
     parameter DATA_W = 8;
     parameter PORTS = 4;
 
-    localparam int 
-
     logic clk = 0;
 
     // interface and class instance
@@ -26,7 +24,9 @@ module voq_buffer_cixb2_tb;
         .i_read_enable(vif.read_enable),
         .o_tx_data(vif.tx_data),
         .o_tx_ctrl(vif.tx_ctrl),
-        .o_occupancy(vif.occupancy)
+        .o_occupancy(vif.occupancy),
+        .o_full(vif.full),
+        .o_empty(vif.empty)
     );  
 
     //////////////// Clock ///////////////////////
@@ -41,7 +41,7 @@ module voq_buffer_cixb2_tb;
 
     // Test 1: Single write and read
     task automatic test_single();
-        logic [7:0] expected = 8'h0000AA00; // from port 0 to port 1 (0, 1)
+        logic [7:0] expected = 8'hAA; // from port 0 to port 1 (0, 1)
         logic [7:0] actual;
 
         drv.write(0,1,expected);

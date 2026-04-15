@@ -20,18 +20,20 @@ CROSSBAR_SV_FILES = \
 	$(RTL)/crossbar/buffer/fifo.v \
 	$(RTL)/crossbar/FIFOs/pkt_len_fifo.v \
 	$(RTL)/crossbar/scheduler/drr_scheduler.sv \
-	$(RTL)/crossbar/crossbar_top.sv
 
 CROSSBAR_TB_FILES = \
-	$(TB)/crossbar/crossbar_top_tb.sv \
+	$(TB)/crossbar/buffer/voq_buffer_if.sv \
+	$(TB)/crossbar/buffer/voq_buffer_pkg.sv \
+	$(TB)/crossbar/buffer/voq_buffer_cixb2_tb.sv \
+
+# INCLUDE_FILES = \
+# 	$(TB)/schedueler/test_sequences.svh \
+# 	$(TB)/schedueler/helper_tasks.svh \
 
 
-# 	$(TB)/crossbar/buffer/voq_buffer_if.sv \
-# 	$(TB)/crossbar/buffer/voq_buffer_pkg.sv \
-# 	$(TB)/crossbar/buffer/voq_buffer_cixb2_tb.sv \
 
 # tmp top, should be crossbar_tb.sv when crossbar is done
-CROSSBAR_TOP = crossbar_top_tb
+CROSSBAR_TOP = voq_buffer_cixb2_tb
 
 ############################# FCS CONTROL ################################
 FCS_SV_FILES = \
@@ -45,8 +47,6 @@ FCS_TB_FILES = \
 	$(TB)/fcs_control/crc_calculator_tb.sv
 
 FCS_TOP = crc_calculator_tb
-
-
 
 all: compile
 
@@ -80,7 +80,7 @@ fcs_batch: fcs_compile
 crossbar_compile: clean
 	$(VLIB) $(WORK)
 	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
-	$(VLOG) $(VLOG_OPT) $(CROSSBAR_SV_FILES) $(CROSSBAR_TB_FILES)
+	$(VLOG) $(VLOG_OPT) $(CROSSBAR_SV_FILES) $(CROSSBAR_TB_FILES) 
 
 crossbar_sim: crossbar_compile
 	$(VSIM) -onfinish stop work.$(CROSSBAR_TOP) $(CROSSBAR_TOP)

@@ -1,16 +1,21 @@
 module switchcore (
-    input  wire        clk,
-    input  wire        reset,
+    input  logic        clk,
+    input  logic        reset,
 
-    // Activity indicators
-    input  wire [3:0]  link_sync,   // High indicates a peer connection at the physical layer (cable plugged in)
+    // // Activity indicators
+    // input  wire [3:0]  link_sync,   // High indicates a peer connection at the physical layer (cable plugged in)
 
     // Four GMII interfaces
-    output reg  [31:0] tx_data,     // (7:0)=TXD0 ... (31:24)=TXD3
-    output reg  [3:0]  tx_ctrl,     // (0)=TXC0 ... (3)=TXC3
-    input  wire [31:0] rx_data,     // (7:0)=RXD0 ... (31:24)=RXD3
-    input  wire [3:0]  rx_ctrl      // (0)=RXC0 ... (3)=RXC3
+    output logic  [31:0] tx_data,     // (7:0)=TXD0 ... (31:24)=TXD3
+    output logic  [3:0]  tx_ctrl,     // (0)=TXC0 ... (3)=TXC3
+    input  logic [31:0] rx_data,     // (7:0)=RXD0 ... (31:24)=RXD3
+    input  logic [3:0]  rx_ctrl      // (0)=RXC0 ... (3)=RXC3
 );
+
+
+
+
+
 
 always @(posedge clk or negedge reset) begin
     if (!reset) begin

@@ -61,14 +61,14 @@ module voq_buffer_cixb2 #(
 
     ///////// Read/Write and data connections //////////
     always_comb begin
-        for (int i = 0; i < PORTS; i++) begin
-            for (int j = 0; j < PORTS; j++) begin
+        for (int i = 0; i < PORTS; i++) begin // ROW
+            for (int j = 0; j < PORTS; j++) begin // COLUNB
                 // connect scheduler to FIFO control
                 fifo_wen[i][j] = i_write_enable[i*PORTS + j];
                 fifo_ren[i][j] = i_read_enable[i*PORTS + j];
 
                 // each row gets its input data
-                fifo_wdata[i][j] = i_data[i*DATA_W +: DATA_W];
+                fifo_wdata[i][j] = i_data[j*DATA_W +: DATA_W]; // data0=bits 7:0, data1=bits 15:8, etc.
             end
         end
     end
@@ -79,7 +79,8 @@ module voq_buffer_cixb2 #(
 
         for (int i = 0; i < PORTS; i++) begin
             for (int j = 0; j < PORTS; j++) begin
-                o_occupancy[(i*PORTS + j)*OCC_WIDTH +: OCC_WIDTH] = fifo_usedw[i][j];
+                automatic int idx = i*PORTS + j;
+                o_occupancy[idx*OCC_WIDTH +: OCC_WIDTH] = fifo_usedw[i][j];
                 o_full[i*PORTS + j] = fifo_full[i][j];
                 o_empty[i*PORTS + j] = fifo_empty[i][j];
             end

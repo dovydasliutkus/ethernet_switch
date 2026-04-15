@@ -63,7 +63,7 @@ module crossbar_top_tb;
         repeat (5) @(posedge clk);
         rst = 1;
 
-        $display("[%0t] Starting packet: input 0 → output 2, length = 4", $time);
+        $display("[%0t] Starting packet: input 0 -> output 2, length = 4", $time);
 
         // TEST: Input 0 -> Output 2
         i_pkt_len[0]  = 4;

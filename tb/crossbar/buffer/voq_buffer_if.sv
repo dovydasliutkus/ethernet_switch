@@ -8,8 +8,10 @@ interface voq_buffer_if #(parameter DATA_W = 8, PORTS = 4) (input logic clk);
 
     logic [PORTS*DATA_W-1:0] tx_data;
     logic [PORTS-1:0] tx_ctrl;
-    logic [PORTS*PORTS-1:0] occupancy;
-
+    parameter OCC_WIDTH = $clog2(4096);
+    logic [PORTS*PORTS*OCC_WIDTH-1:0] occupancy;
+    logic [PORTS*PORTS-1:0] full;
+    logic [PORTS*PORTS-1:0] empty;
 
     clocking cb @(posedge clk);
         output data;
