@@ -12,30 +12,28 @@ module crossbar_top #(
     input logic [PORTS*DATA_W-1:0] i_data,
 
     input logic [PORTS-1:0] i_pkt_valid,
-    input logic [PORTS-1:0] i_dst_port [PORTS],
-    input logic [LEN_WIDTH-1:0] i_pkt_len [PORTS],
+    input logic [PORTS-1:0] i_dst_port [PORTS-1:0],
+    input logic [LEN_WIDTH-1:0] i_pkt_len [PORTS-1:0],
 
     // Outputs
     output logic [PORTS*DATA_W-1:0] o_tx_data,
     output logic [PORTS-1:0] o_tx_ctrl
 ); 
 
-    //////////////////// Buffer instantantiation ////////////////////
-    // Signals
-    logic [PORTS*PORTS*OCC_WIDTH-1:0] occupancy;
-    logic [PORTS*PORTS-1:0] full;
-    logic [PORTS*PORTS-1:0] empty;
+
     logic [PORTS*PORTS-1:0] write_enable;
     logic [PORTS*PORTS-1:0] read_enable;
-    logic [OCC_WIDTH-1:0] usedw [PORTS][PORTS];
+    logic [PORTS*PORTS*OCC_WIDTH-1:0] occupancy;
 
-    logic [PORTS-1:0] buffer_wr_en [PORTS];
-    logic [PORTS-1:0] buffer_rd_en [PORTS];
-    logic [PORTS-1:0] buffer_full [PORTS];
-    logic [PORTS-1:0] buffer_empty [PORTS];
-
-    assign write_enable = {buffer_wr_en[3], buffer_wr_en[2], buffer_wr_en[1], buffer_wr_en[0]};
-    assign read_enable  = {buffer_rd_en[3], buffer_rd_en[2], buffer_rd_en[1], buffer_rd_en[0]}; 
+    always_comb begin
+        for (int i = 0; i < PORTS; i++) begin
+            for (int j = 0; j < PORTS; j++) begin
+                write_enable[i*PORTS + j] = buffer_wr_en[j][i];
+                read_enable[i*PORTS + j]  = buffer_rd_en[j][i];
+                
+            end
+        end
+    end 
 
     voq_buffer_cixb2  #(.DATA_W(DATA_W), .PORTS(PORTS), .FIFO_DEPTH(FIFO_DEPTH)
     ) u_voq_buffer_cixb2 (
@@ -54,50 +52,42 @@ module crossbar_top #(
         .o_full(full),
         .o_empty(empty)
     );
-    // Extract occupancy
-    always_comb begin
-        for (int i = 0; i < PORTS; i++) begin           // input port
-            for (int j = 0; j < PORTS; j++) begin       // output port
-                usedw[i][j] = occupancy[((i*PORTS + j)*OCC_WIDTH) +: OCC_WIDTH];
-            end
-        end
-    end
+ 
 
-    // Extract full and empty signals for each buffer
-    assign buffer_full[0] = 
-
-
-    ////////////////// Scheduler instantiation //////////////////////
-    // Generates four schedulers, one for each output port
-    // Signals
-    logic [OCC_WIDTH-1:0] col_usedw [PORTS][PORTS];
-    logic [PORTS-1:0] col_full [PORTS];
-    logic [PORTS-1:0] col_empty [PORTS];
-
-    always_comb begin
-        for (int j = 0; j < PORTS; j++) begin          // output port
-            for (int i = 0; i < PORTS; i++) begin      // input port
-                col_usedw[j][i] = usedw[i][j];
-                col_full[j][i]  = buffer_full[i][j];
-                col_empty[j][i] = buffer_empty[i][j];
-            end
-        end
-    end
 
     genvar i;
+
+    logic [OCC_WIDTH-1:0] usedw_col [PORTS][PORTS]; // [j][i]
+    logic                 full_col  [PORTS][PORTS]; // [j][i]
+    logic                 empty_col [PORTS][PORTS]; // [j][i]
+
+    always_comb begin
+        for (int i = 0; i < PORTS; i++) begin
+            for (int j = 0; j < PORTS; j++) begin
+                int idx = i*PORTS + j;
+                // transpose: [i][j] becomes [j][i]
+                usedw_col[j][i] = occupancy[idx*OCC_WIDTH +: OCC_WIDTH];
+                full_col[j][i]  = full[idx];
+                empty_col[j][i] = empty[idx];
+            end
+        end
+    end
+
+    logic [PORTS-1:0] buffer_wr_en [PORTS-1:0];
+    logic [PORTS-1:0] buffer_rd_en [PORTS-1:0];
     generate
         for (i = 0; i < PORTS; i++) begin
                 drr_scheduler # (.PORT_ID(i), .MAX_PKT_SIZE(MAX_PKT_SIZE),
                                                .LEN_WIDTH(LEN_WIDTH), .FIFO_DEPTH(FIFO_DEPTH), .OCC_WIDTH(OCC_WIDTH)
                         ) u_drr_scheduler (
-                        .i_clk(i_clk),
-                        .i_reset(i_rst),
-                        .i_pkt_valid(i_pkt_valid),
-                        .i_dst_port(i_dst_port),
-                        .i_pkt_len(i_pkt_len),
-                        .i_buffer_usedw(col_usedw[i]),
-                        .i_buffer_full(col_full[i]),
-                        .i_buffer_empty(col_empty[i]),
+                        .i_clk(i_clk), // done
+                        .i_reset(i_rst), // done
+                        .i_pkt_valid(i_pkt_valid), // done
+                        .i_dst_port(i_dst_port), // done, temporary
+                        .i_pkt_len(i_pkt_len[i]), // done
+                        .i_buffer_usedw(usedw_col[i]),
+                        .i_buffer_full(full_col[i]),
+                        .i_buffer_empty(empty_col[i]),
                         .o_buffer_wr_en(buffer_wr_en[i]),
                         .o_buffer_rd_en(buffer_rd_en[i])
                     );
