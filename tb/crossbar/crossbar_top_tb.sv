@@ -1,3 +1,5 @@
+`timescale 1 ps / 1 ps
+
 module crossbar_top_tb;
     // SIMPLE TESTBENCH (WILL BE REMOVED LATER)
     localparam PORTS = 4;
@@ -10,8 +12,8 @@ module crossbar_top_tb;
 
     logic [PORTS*DATA_W-1:0] i_data;
     logic [PORTS-1:0] i_pkt_valid;
-    logic [PORTS-1:0] i_dst_port [PORTS];
-    logic [LEN_WIDTH-1:0] i_pkt_len [PORTS];
+    logic [PORTS-1:0] i_dst_port [PORTS-1:0];
+    logic [LEN_WIDTH-1:0] i_pkt_len [PORTS-1:0];
 
     logic [PORTS*DATA_W-1:0] o_tx_data;
     logic [PORTS-1:0] o_tx_ctrl;
@@ -33,11 +35,16 @@ module crossbar_top_tb;
 
 
     task automatic simple_test();
+        @(posedge clk); // align to clock edge
 
         i_data = 32'h000000aa; // data on input port 0
         i_pkt_valid = 4'b0001; // for input port 0
         i_dst_port[0] = 4'b0001; // to port 0
         i_pkt_len[0] = 8; // packet length from input port 0
+
+        repeat(8) @(posedge clk);
+
+        i_pkt_valid = 4'b0000;
 
         repeat(40) @(posedge clk);
 
@@ -47,6 +54,14 @@ module crossbar_top_tb;
     initial begin
         clk = 0;
         rst = 0;
+
+        // initialize ALL inputs to prevent 'X' propagation
+        i_data = '0;
+        i_pkt_valid = '0;
+        for (int i = 0; i < PORTS; i++) begin
+            i_dst_port[i] = '0;
+            i_pkt_len[i] = '0;
+        end
 
         repeat(5) @(posedge clk);
         rst = 1; // release reset

@@ -68,7 +68,7 @@ module voq_buffer_cixb2 #(
                 fifo_ren[i][j] = i_read_enable[i*PORTS + j];
 
                 // each row gets its input data
-                fifo_wdata[i][j] = i_data[j*DATA_W +: DATA_W]; // data0=bits 7:0, data1=bits 15:8, etc.
+                fifo_wdata[i][j] = i_data[i*DATA_W +: DATA_W];
             end
         end
     end
@@ -109,13 +109,10 @@ module voq_buffer_cixb2 #(
     //////////////////////////////////////////////////
 
     //////////////// Output registers ////////////////
-    always_ff @(posedge i_clk) begin
+    always_ff @(posedge i_clk or negedge i_rst) begin
         if (!i_rst) begin
             o_tx_data_r  <= '0;
             o_tx_ctrl_r <= '0;
-            o_occupancy <= '0;
-            o_full <= '0;
-            o_empty <= '0;
         end else begin
             o_tx_data_r  <= o_tx_data_next;
             o_tx_ctrl_r <= o_tx_ctrl_next;

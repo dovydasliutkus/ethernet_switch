@@ -79,24 +79,26 @@ module crossbar_top #(
         end
     end
 
-
     generate
-        for (i = 0; i < PORTS; i++) begin
-                drr_scheduler # (.PORT_ID(i), .MAX_PKT_SIZE(MAX_PKT_SIZE),
-                                               .LEN_WIDTH(LEN_WIDTH), .FIFO_DEPTH(FIFO_DEPTH), .OCC_WIDTH(OCC_WIDTH)
-                        ) u_drr_scheduler (
-                        .i_clk(i_clk), // done
-                        .i_reset(i_rst), // done
-                        .i_pkt_valid(i_pkt_valid), // done
-                        .i_dst_port(i_dst_port), // done, temporary
-                        .i_pkt_len(i_pkt_len), // done
-                        .i_buffer_usedw(usedw_col[i]),
-                        .i_buffer_full(full_col[i]),
-                        .i_buffer_empty(empty_col[i]),
-                        .o_buffer_wr_en(buffer_wr_en[i]),
-                        .o_buffer_rd_en(buffer_rd_en[i])
-                    );
-
+        for (i = 0; i < PORTS; i++) begin : gen_sched
+            drr_scheduler #(
+                .PORT_ID(i),
+                .MAX_PKT_SIZE(MAX_PKT_SIZE),
+                .LEN_WIDTH(LEN_WIDTH),
+                .FIFO_DEPTH(FIFO_DEPTH),
+                .OCC_WIDTH(OCC_WIDTH)
+            ) u_drr_scheduler (
+                .i_clk(i_clk),
+                .i_reset(i_rst),
+                .i_pkt_valid(i_pkt_valid),
+                .i_dst_port(i_dst_port),
+                .i_pkt_len(i_pkt_len),
+                .i_buffer_usedw(usedw_col[i]),
+                .i_buffer_full(full_col[i]),
+                .i_buffer_empty(empty_col[i]),
+                .o_buffer_wr_en(buffer_wr_en[i]),
+                .o_buffer_rd_en(buffer_rd_en[i])
+            );
         end
     endgenerate
 

@@ -159,6 +159,22 @@ module tb_drr_scheduler;
         test_num = 9;
         $display("\nT%0d: DRR Fairness (Small vs Large)", test_num);
         run_test_9();
+
+        // T10: Back-to-back packets from same queue when deficit allows
+        test_num = 10;
+        $display("\nT%0d: Back-to-back packets from same queue", test_num);
+        begin
+            int pkt_len = 64;
+            int rd_edge_count;
+
+            do_reset();
+            // Push two packets back-to-back from port 0
+            dst_port[0]  = 4'b0001;
+            i_pkt_len[0] = LEN_WIDTH'(pkt_len);
+            pkt_valid[0] = 1'b1;
+
+
+        end
             
         $finish;
 

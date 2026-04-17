@@ -97,7 +97,8 @@ module drr_scheduler #(
                            & i_dst_port[i][PORT_ID] 
                            & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) 
                            & ~i_buffer_full[i] 
-                           & ~len_full[i];
+                           & ~len_full[i]
+                           & i_reset;
         end
     end
 
