@@ -10,7 +10,7 @@ WORK = work
 # ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
 
 # Altera library path for older version of Quartus
-ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+ALTERA_LIB = C:\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
 
 
 RTL = rtl
