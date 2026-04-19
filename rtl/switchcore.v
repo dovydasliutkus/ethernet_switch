@@ -1,30 +1,30 @@
 module switchcore (
-    input  logic        clk,
-    input  logic        reset,
+    input  wire        clk,
+    input  wire        reset,
 
     // // Activity indicators
     input  wire [3:0]  link_sync,   // High indicates a peer connection at the physical layer (cable plugged in)
 
     // Four GMII interfaces
-    output logic  [31:0] tx_data,     // (7:0)=TXD0 ... (31:24)=TXD3
-    output logic  [3:0]  tx_ctrl,     // (0)=TXC0 ... (3)=TXC3
-    input  logic [31:0] rx_data,     // (7:0)=RXD0 ... (31:24)=RXD3
-    input  logic [3:0]  rx_ctrl      // (0)=RXC0 ... (3)=RXC3
+    output wire  [31:0] tx_data,     // (7:0)=TXD0 ... (31:24)=TXD3
+    output wire  [3:0]  tx_ctrl,     // (0)=TXC0 ... (3)=TXC3
+    input  wire  [31:0] rx_data,     // (7:0)=RXD0 ... (31:24)=RXD3
+    input  wire  [3:0]  rx_ctrl      // (0)=RXC0 ... (3)=RXC3
 );
 
     // fcs_control <-> mac_learner wires
-    logic        mac_valid;
-    logic [3:0]  mac_src_port;
-    logic [47:0] mac_src_mac;
-    logic [47:0] mac_dst_mac;
-    logic [3:0]  mac_dst_port;
-    logic        mac_done;
+    wire        mac_valid;
+    wire [3:0]  mac_src_port;
+    wire [47:0] mac_src_mac;
+    wire [47:0] mac_dst_mac;
+    wire [3:0]  mac_dst_port;
+    wire        mac_done;
 
     // fcs_control -> crossbar wires
-    logic [3:0]  packet_valid;
-    logic [3:0]  dst_port      [3:0];
-    logic [7:0]  data          [3:0];
-    logic [10:0] packet_length [3:0];
+    wire [3:0]  packet_valid;
+    wire [3:0]  dst_port      [3:0];
+    wire [7:0]  data          [3:0];
+    wire [10:0] packet_length [3:0];
 
     // fcs_control instance
     fcs_control u_fcs_control (
