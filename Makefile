@@ -102,10 +102,7 @@ compile:
 	$(VLOG) $(VLOG_OPT) $(TOP_SV_FILES) $(TOP_TB_FILES)
 
 sim: compile
-	$(VSIM) $(TOP)
-
-wave: compile
-	$(VSIM) -do "add wave -r *; run -all" $(TOP)
+	$(VSIM) $(TOP) -do "do wave_top.do; run -all"
 
 batch: compile
 	$(VSIM) -c $(TOP) -do "run -all; quit"
