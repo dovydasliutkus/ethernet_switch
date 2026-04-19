@@ -15,8 +15,6 @@ vsim.wlf
 *.ucdb
 
 # Wave files
-*.do
-!wave.do
 !sim.do
 
 # Auto-generated project files
@@ -34,5 +32,4 @@ fpga/template/*
 # Dovydas's files
 doc/8023-2022.pdf
 *.ppt
-*.do
 rtl/fcs_control/FIFOs_old

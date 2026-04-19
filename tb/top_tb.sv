@@ -112,11 +112,8 @@ module top_tb;
 
     // ----------------------------------------------------------------
     // check_packet : waits for packet_valid[port] then counts cycles.
-    //   Uses hierarchical references since packet_valid is internal to
-    //   switchcore (crossbar not yet instantiated as a top-level output).
+    //
     //   `port` is the INPUT port index — packet_valid is indexed by it.
-    //   Timeout is generous to accommodate the 2-cycle mac_learner FSM
-    //   plus CRC/FIFO latency.
     // ----------------------------------------------------------------
     task automatic check_packet(int pkt_idx, int port);
         int tx_cycles, timeout, pass;
@@ -168,7 +165,7 @@ module top_tb;
         read_packet_file(PACKET_FILE);
 
         for (int p = 0; p + 1 < num_packets; p += 2) begin
-            
+
             // // Parallel implementation
             // fork
             //     send_packet(p,   0);
