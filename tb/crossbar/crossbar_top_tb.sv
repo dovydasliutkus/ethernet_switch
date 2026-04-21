@@ -1,73 +1,307 @@
-`timescale 1 ps / 1 ps
+`timescale 1ns/1ps
+
+import crossbar_pkg::*;
 
 module crossbar_top_tb;
-    // SIMPLE TESTBENCH (WILL BE REMOVED LATER)
-    localparam PORTS = 4;
-    localparam DATA_W = 8;
-    localparam MAX_PKT_SIZE = 1518;
-    localparam LEN_WIDTH = $clog2(MAX_PKT_SIZE);
 
-    logic clk;
-    logic rst;
+    parameter DATA_W = 8;
+    parameter PORTS  = 4;
+    parameter MAX_PKT_SIZE = 1518;
+    parameter LEN_WIDTH = $clog2(MAX_PKT_SIZE);
 
-    logic [PORTS*DATA_W-1:0] i_data;
-    logic [PORTS-1:0] i_pkt_valid;
-    logic [PORTS-1:0] i_dst_port [PORTS-1:0];
-    logic [LEN_WIDTH-1:0] i_pkt_len [PORTS-1:0];
+    logic clk = 0;
+    always #5 clk = ~clk;
 
-    logic [PORTS*DATA_W-1:0] o_tx_data;
-    logic [PORTS-1:0] o_tx_ctrl;
+    crossbar_if #(DATA_W, PORTS, LEN_WIDTH) vif(clk);
+
+    // queues
+    mailbox #(packet) exp_q[PORTS];
+    mailbox #(packet) act_q[PORTS];
+    mailbox #(int)    len_q[PORTS];
+
+    crossbar_driver #(DATA_W,PORTS,LEN_WIDTH) drv;
+    tx_monitor      #(DATA_W,PORTS,LEN_WIDTH) mon;
 
     // DUT
     crossbar_top dut (
         .i_clk(clk),
-        .i_rst(rst),
-        .i_data(i_data),
-        .i_pkt_valid(i_pkt_valid),
-        .i_dst_port(i_dst_port),
-        .i_pkt_len(i_pkt_len),
-        .o_tx_data(o_tx_data),
-        .o_tx_ctrl(o_tx_ctrl)
+        .i_rst(vif.rst),
+        .i_data(vif.data),
+        .i_pkt_valid(vif.pkt_valid),
+        .i_dst_port(vif.dst_port),
+        .i_pkt_len(vif.pkt_len),
+        .o_tx_data(vif.tx_data),
+        .o_tx_ctrl(vif.tx_ctrl)
     );
 
-    // clock
-    always #5 clk = ~clk;
+    // ================= SCOREBOARD =================
+    task automatic run_scoreboard();
 
+        int pass = 0;
+        int fail = 0;
 
-    task automatic simple_test();
-        @(posedge clk); // align to clock edge
+        packet exp, act;
 
-        i_data = 32'h000000aa; // data on input port 0
-        i_pkt_valid = 4'b0001; // for input port 0
-        i_dst_port[0] = 4'b0001; // to port 0
-        i_pkt_len[0] = 8; // packet length from input port 0
+        for (int p = 0; p < PORTS; p++) begin
 
-        repeat(8) @(posedge clk);
+            while (exp_q[p].try_get(exp)) begin
 
-        i_pkt_valid = 4'b0000;
+                if (!act_q[p].try_get(act)) begin
+                    $display("PORT %0d: MISSING PACKET", p);
+                    fail++;
+                    continue;
+                end
 
-        repeat(40) @(posedge clk);
+                if (exp.len != act.len) begin
+                    $display("PORT %0d: LEN MISMATCH exp=%0d act=%0d",
+                            p, exp.len, act.len);
+                    fail++;
+                end else begin
+                    pass++;
+                end
+            end
+        end
+
+        $display("\n========== SCOREBOARD ==========");
+        $display("Packets PASS = %0d", pass);
+        $display("Packets FAIL = %0d", fail);
+        $display("================================\n");
 
     endtask
 
 
-    initial begin
-        clk = 0;
-        rst = 0;
+    // ================= DEBUG PRINT =================
+    task automatic print_cycle();
+        $write("[%0t] ", $time);
 
-        // initialize ALL inputs to prevent 'X' propagation
-        i_data = '0;
-        i_pkt_valid = '0;
-        for (int i = 0; i < PORTS; i++) begin
-            i_dst_port[i] = '0;
-            i_pkt_len[i] = '0;
+        for (int p = 0; p < PORTS; p++) begin
+            if (vif.tx_ctrl[p])
+                $write("P%0d: 0x%h ", p, vif.tx_data[p*DATA_W +: DATA_W]);
+            else
+                $write("P%0d: -- ", p);
         end
 
-        repeat(5) @(posedge clk);
-        rst = 1; // release reset
+        $write("\n");
+    endtask
 
-        simple_test();
+
+    // ================= TEST =================
+        // init mailboxes
+    initial begin
+
+        foreach (exp_q[i]) exp_q[i] = new();
+        foreach (act_q[i]) act_q[i] = new();
+        foreach (len_q[i]) len_q[i] = new();
+
+        drv = new(vif, exp_q, len_q);
+        mon = new(vif, act_q, len_q);
+
+        fork
+            mon.run();
+        join_none
+
+        drv.reset();
+
+        // TODO: insert all tests
+        test_small_single_cross_port_xfer();
+        test_small_parallel_cross_port_xfer();
+        test_large_parallel_cross_port_xfer();
+
+        test_small_contention_same_output();
+        test_large_contention_same_output();
+
+        // test_back_to_back_same_flow();
+
+        run_scoreboard();
 
         $finish;
     end
+
+
+    // debug viewer
+    initial begin
+        forever begin
+            @(vif.cb);
+            print_cycle();
+        end
+    end
+
+    ////////////////////////////// TEST TASKS //////////////////////////////
+
+
+    /////// NO CONTENTION BETWEEN OUTPUT PORTS, JUST BASIC FUNCTIONALITY ///////
+    // passes
+    task automatic test_small_single_cross_port_xfer();
+        drv.send_simple_packet(0, 1); // len is fixed to 8
+        wait_for_completion(1);
+    endtask
+
+    // passes
+    task automatic test_small_parallel_cross_port_xfer();
+        fork
+            drv.send_simple_packet(0, 1); // len is fixed to 8
+            drv.send_simple_packet(1, 2);
+            drv.send_simple_packet(2, 3);
+            drv.send_simple_packet(3, 0);
+        join
+
+        wait_for_completion(4);
+    endtask 
+
+
+    task automatic test_large_parallel_cross_port_xfer();
+        int rand_dst_port =$urandom_range(0, PORTS-1);
+        int len = 1518;  // TODO: hæv til 1518 og test overflwo 
+        fork
+            drv.send_packet(0, rand_dst_port, len);
+            drv.send_packet(1, rand_dst_port, len);
+            drv.send_packet(2, rand_dst_port, len);
+            drv.send_packet(3, rand_dst_port, len);
+        join
+
+        wait_for_completion(4);
+
+    endtask
+
+
+    ///////// CONTENTION TESTS (OUTPUT PORTS COMPETE FOR SAME DESTINATION) ////////
+    task automatic test_small_contention_same_output();
+
+        fork
+            drv.send_simple_packet(0, 1);
+            drv.send_simple_packet(1, 1);
+            drv.send_simple_packet(2, 1);
+            drv.send_simple_packet(3, 1);
+        join
+
+        wait_for_completion(4);
+    endtask
+
+    task automatic test_large_contention_same_output();
+        int rand_dst_port =$urandom_range(0, PORTS-1);
+        int len = 1518;  // TODO: hæv til 1518 og test overflwo 
+        fork
+            drv.send_packet(0, rand_dst_port, len);
+            drv.send_packet(1, rand_dst_port, len);
+            drv.send_packet(2, rand_dst_port, len);
+            drv.send_packet(3, rand_dst_port, len);
+        join
+
+        wait_for_completion(4);
+    endtask
+
+
+    task automatic test_back_to_back_same_flow();
+
+        repeat (5) begin
+            drv.send_simple_packet(0, 1);
+        end
+
+        wait_for_completion(5);
+
+    endtask
+
+
+
+
+
+
+
+
+
+
+
+    //////// WAIT TASK ///////////
+    // task automatic wait_for_completion(int expected);
+
+    //     int received;
+    //     int last_received;
+    //     int idle_cycles;
+    //     int start_count;
+    //     bit activity;
+         
+    //     received = 0;
+    //     last_received = 0;
+    //     idle_cycles = 0;
+
+    //     // starting point
+    //     start_count = 0;
+    //     for (int p = 0; p < PORTS; p++)
+    //         start_count += act_q[p].num();
+
+    //     while ((received - start_count) < expected) begin
+    //         @(vif.cb);
+
+    //         received = 0;
+    //         activity = 0;
+
+    //         for (int p = 0; p < PORTS; p++) begin
+    //             received += act_q[p].num();
+    //             activity |= vif.tx_ctrl[p];  // fix for BACK-TO-BACK test
+    //         end
+
+    //         if ((received == last_received) && !activity)
+    //             idle_cycles++;
+    //         else
+    //             idle_cycles = 0;
+
+    //         last_received = received;
+
+    //         if (idle_cycles > 2000) begin
+    //             $error("Stalled: no packets arriving");
+    //             break;
+    //         end
+    //     end
+
+    //     $display("[%0t] Completed: %0d new packets received",
+    //             $time, received - start_count);
+
+    // endtask
+    task automatic wait_for_completion(int expected);
+
+        int received;
+        int start_count;
+        int last_received;
+        int idle_cycles;
+
+        // capture starting point (important for multiple tests)
+        start_count = 0;
+        for (int p = 0; p < PORTS; p++)
+            start_count += act_q[p].num();
+
+        last_received = start_count;
+        idle_cycles   = 0;
+
+        while (1) begin
+            @(vif.cb);
+
+            // count total packets so far
+            received = 0;
+            for (int p = 0; p < PORTS; p++)
+                received += act_q[p].num();
+
+            // check completion (relative to this test)
+            if ((received - start_count) >= expected)
+                break;
+
+            // stall detection
+            if (received == last_received)
+                idle_cycles++;
+            else
+                idle_cycles = 0;
+
+            last_received = received;
+
+            if (idle_cycles > 2000) begin
+                $error("Stalled: no packets arriving");
+                break;
+            end
+        end
+
+        $display("[%0t] Completed: %0d packets",
+                $time, received - start_count);
+
+    endtask
+
+
 endmodule

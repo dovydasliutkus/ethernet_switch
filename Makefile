@@ -7,10 +7,10 @@ VLOG_OPT = -timescale=1ns/1ps
 WORK = work
 
 # Altera library path for newest version of Quartus
-# ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
+ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
 
 # Altera library path for older version of Quartus
-ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+# ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
 
 
 RTL = rtl
@@ -27,7 +27,9 @@ CROSSBAR_TB_FILES = \
 	$(TB)/crossbar/buffer/voq_buffer_if.sv \
 	$(TB)/crossbar/buffer/voq_buffer_pkg.sv \
 	$(TB)/crossbar/buffer/voq_buffer_cixb2_tb.sv \
-	$(TB)/crossbar/crossbar_top_tb.sv \
+	$(TB)/crossbar/crossbar_pkg.sv \
+	$(TB)/crossbar/crossbar_if.sv\
+	$(TB)/crossbar/crossbar_top_tb.sv 
 
 # INCLUDE_FILES = \
 # 	$(TB)/schedueler/test_sequences.svh \
