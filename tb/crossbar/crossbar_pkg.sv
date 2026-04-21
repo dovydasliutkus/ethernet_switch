@@ -1,8 +1,6 @@
 package crossbar_pkg;
 
-    // ============================================================
     // PACKET CLASS
-    // ============================================================
     class packet;
 
         int src;
@@ -19,9 +17,7 @@ package crossbar_pkg;
     endclass
 
 
-    // ============================================================
     // DRIVER
-    // ============================================================
     class crossbar_driver #(parameter DATA_W=8, PORTS=4, LEN_WIDTH=11);
 
         virtual crossbar_if #(DATA_W,PORTS,LEN_WIDTH) vif;
@@ -40,7 +36,7 @@ package crossbar_pkg;
         endfunction
 
 
-        // ---------------- RESET ----------------
+        // RESET TASK
         task reset();
 
             vif.rst <= 0;  
@@ -55,7 +51,7 @@ package crossbar_pkg;
         endtask
 
 
-        // ---------------- GENERIC PACKET ----------------
+        // GENERIC PACKET
         task send_packet(int src, int dst, int len);
 
             packet pkt = new(src, dst, len);
@@ -86,7 +82,7 @@ package crossbar_pkg;
         endtask
 
 
-        // ---------------- SIMPLE PACKET ----------------
+        // SIMPLE PACKET (LEN=8, for debugging)
         task send_simple_packet(int src, int dst);
             send_packet(src, dst, 8);
         endtask
@@ -94,9 +90,7 @@ package crossbar_pkg;
     endclass
 
 
-    // ============================================================
-    // TX MONITOR (ORIGINAL LENGTH-AWARE)
-    // ============================================================
+    // TX MONITOR (length aware monitor)
     class tx_monitor #(parameter DATA_W=8, PORTS=4, LEN_WIDTH=11);
 
         virtual crossbar_if #(DATA_W,PORTS,LEN_WIDTH) vif;

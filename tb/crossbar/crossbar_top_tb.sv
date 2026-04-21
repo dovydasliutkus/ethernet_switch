@@ -85,7 +85,7 @@ module crossbar_top_tb;
     endtask
 
 
-    // ================= TEST =================
+    // ================= TESTS =================
         // init mailboxes
     initial begin
 
