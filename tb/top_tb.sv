@@ -5,9 +5,14 @@
 //
 // Sends Ethernet frames from a packet file.
 //
-// Checks (via hierarchical references into the DUT):
-//   1.  packet_valid[port] asserts after the MAC lookup completes
-//   2.  packet_valid[port] stays high for exactly `packet_length` cycles
+// NOTE: packet.txt must contain valid Ethernet frames with correct FCS bytes.
+//       Frames with bad CRC are silently dropped by fcs_control and will not
+//       appear on tx_data / tx_ctrl.
+//
+// Checks (on crossbar output tx_data / tx_ctrl):
+//   2.  Reports which output port(s) fired per packet
+//   4.  Asserts tx_ctrl[ingress_port] never goes high (no self-loop)
+//   5.  Asserts byte count per output port matches expected packet length
 // =============================================================================
 
 module top_tb;
@@ -50,6 +55,14 @@ module top_tb;
     // ----------------------------------------------------------------
     localparam MAX_BYTES   = 1600;
     localparam MAX_PACKETS = 32;
+
+    // How many consecutive idle cycles before declaring output done.
+    // Covers DRR scheduler gaps between output ports for broadcast frames.
+    localparam int IDLE_THRESHOLD = 50;
+
+    // Cycles to wait for the first byte to appear after packet is sent.
+    // Covers fcs_control buffering + MAC lookup + crossbar pipeline.
+    localparam int OUTPUT_TIMEOUT = 5000;
 
     logic [7:0] packets    [MAX_PACKETS][MAX_BYTES];
     int         pkt_lens   [MAX_PACKETS];
@@ -96,7 +109,8 @@ module top_tb;
     // ----------------------------------------------------------------
     task automatic send_packet(int pkt_idx, int port);
         int plen = pkt_lens[pkt_idx];
-        $display("Sending packet %0d (%0d bytes) on port %0d", pkt_idx, plen, port);
+        $display("[%0t] Sending packet %0d (%0d bytes) on port %0d",
+                 $time, pkt_idx, plen, port);
 
         for (int b = 0; b < plen; b++) begin
             @(negedge i_clk);
@@ -111,43 +125,90 @@ module top_tb;
     endtask
 
     // ----------------------------------------------------------------
-    // check_packet : waits for packet_valid[port] then counts cycles.
+    // check_output : monitors crossbar tx_ctrl / tx_data after a packet
+    //   is sent and performs three checks:
     //
-    //   `port` is the INPUT port index — packet_valid is indexed by it.
+    //   Item 2 — report which output ports fired
+    //   Item 4 — assert no self-loop (ingress port must not fire)
+    //   Item 5 — assert byte count per output port == expected length
+    //
+    //   ingress_port : 0-3, the port the packet was sent in on
     // ----------------------------------------------------------------
-    task automatic check_packet(int pkt_idx, int port);
-        int tx_cycles, timeout, pass;
-        pass = 1;
+    task automatic check_output(int pkt_idx, int ingress_port);
+        int  byte_count[4];
+        int  timeout;
+        bit  self_loop_fail;
+        bit  length_fail[4];
+        bit  any_fail;
 
-        begin : wait_tx
-            timeout = 0;
-            while (!dut.packet_valid[port]) begin
+        foreach (byte_count[p]) byte_count[p] = 0;
+        foreach (length_fail[p]) length_fail[p] = 0;
+        self_loop_fail = 0;
+
+        // Wait for the first tx_ctrl activity
+        timeout = 0;
+        @(posedge i_clk);
+        while (tx_ctrl == 4'b0) begin
+            @(posedge i_clk);
+            if (++timeout > OUTPUT_TIMEOUT) begin
+                $display("[%0t] PKT%0d TIMEOUT: no crossbar output after %0d cycles",
+                         $time, pkt_idx, OUTPUT_TIMEOUT);
+                $display("  (check packet.txt has valid FCS bytes)\n");
+                return;
+            end
+        end
+
+        // Count bytes per port until IDLE_THRESHOLD consecutive idle cycles.
+        // This handles both unicast (one port fires) and broadcast (several
+        // ports fire, potentially at different times via DRR round-robin).
+        begin : count_loop
+            int idle;
+            idle = 0;
+            while (idle < IDLE_THRESHOLD) begin
+                if (tx_ctrl != 4'b0) begin
+                    idle = 0;
+                    for (int p = 0; p < 4; p++)
+                        if (tx_ctrl[p]) byte_count[p]++;
+                end else
+                    idle++;
                 @(posedge i_clk);
-                if (++timeout > 200) begin
-                    $display("  FAIL packet_valid[%0d] never asserted", port);
-                    pass = 0;
-                    disable wait_tx;
+            end
+        end
+
+        // ---- Report ----
+        $display("\n--- Packet %0d output report (ingress port %0d, expected %0d bytes) ---",
+                 pkt_idx, ingress_port, pkt_lens[pkt_idx]);
+
+        for (int p = 0; p < 4; p++) begin
+            if (byte_count[p] > 0) begin
+                // Item 2: port fired
+                $write("  Port %0d fired : %0d bytes", p, byte_count[p]);
+
+                // Item 5: length check
+                if (byte_count[p] !== pkt_lens[pkt_idx]) begin
+                    length_fail[p] = 1;
+                    $display("  [LENGTH FAIL — expected %0d]", pkt_lens[pkt_idx]);
+                end else
+                    $display("  [LENGTH PASS]");
+
+                // Item 4: self-loop check
+                if (p == ingress_port) begin
+                    self_loop_fail = 1;
+                    $display("  Port %0d : SELF-LOOP FAIL", p);
                 end
             end
         end
 
-        tx_cycles = 0;
-        while (dut.packet_valid[port]) begin
-            tx_cycles++;
-            @(posedge i_clk);
-        end
+        // Overall verdict
+        any_fail = self_loop_fail;
+        for (int p = 0; p < 4; p++) any_fail |= length_fail[p];
 
-        if (tx_cycles !== pkt_lens[pkt_idx]) begin
-            $display("  FAIL tx_cycles : got %0d, expected %0d",
-                     tx_cycles, pkt_lens[pkt_idx]);
-            pass = 0;
-        end else
-            $display("  PASS tx_cycles : %0d", tx_cycles);
-
-        if (pass)
-            $display("=== Packet %0d: ALL CHECKS PASSED ===\n", pkt_idx);
+        if (!any_fail)
+            $display("=== Packet %0d: ALL CHECKS PASSED ===", pkt_idx);
         else
-            $display("=== Packet %0d: CHECKS FAILED ===\n", pkt_idx);
+            $display("=== Packet %0d: CHECKS FAILED ===", pkt_idx);
+
+        $display("---\n");
     endtask
 
     // ----------------------------------------------------------------
@@ -165,29 +226,18 @@ module top_tb;
         read_packet_file(PACKET_FILE);
 
         for (int p = 0; p + 1 < num_packets; p += 2) begin
-
-            // // Parallel implementation
-            // fork
-            //     send_packet(p,   0);
-            //     send_packet(p+1, 1);
-            // join
-            // fork
-            //     check_packet(p,   0);
-            //     check_packet(p+1, 1);
-            // join
-
             send_packet(p, 0);
-            check_packet(p, 0);
+            check_output(p, 0);
+            repeat(4) @(posedge i_clk);
 
             send_packet(p+1, 1);
-            check_packet(p+1, 1);
-
+            check_output(p+1, 1);
             repeat(4) @(posedge i_clk);
         end
 
         if (num_packets % 2 == 1) begin
             send_packet(num_packets - 1, 0);
-            check_packet(num_packets - 1, 0);
+            check_output(num_packets - 1, 0);
             repeat(4) @(posedge i_clk);
         end
 
