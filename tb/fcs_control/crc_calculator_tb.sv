@@ -228,7 +228,7 @@ module crc_calculator_tb;
 
 // --------------------------------------------------------
     initial begin
-        reset        = 1;
+        reset        = 0;
         i_rx_ctrl    = 0;
         i_data       = 0;
         i_length_ren = 0;
@@ -237,7 +237,7 @@ module crc_calculator_tb;
         i_srcmac_ren = 0;
 
         repeat(4) @(posedge clk);
-        reset = 0;
+        reset = 1;
         repeat(2) @(posedge clk);
 
         read_packet_file(packet_file_path);

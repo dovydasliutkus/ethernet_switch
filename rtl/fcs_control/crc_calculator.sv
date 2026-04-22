@@ -87,7 +87,7 @@ module crc_calculator(
 	);
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (!reset) begin
             state           <= IDLE;
             rem_reg         <= '0;
             counter         <= '0;

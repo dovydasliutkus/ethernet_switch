@@ -53,7 +53,7 @@ module output_control (
     // Sequential logic
     // ----------------------------------------------------------------
     always_ff @(posedge i_clk) begin
-        if (i_reset) begin
+        if (!i_reset) begin
             mac_state <= MAC_IDLE;
             rr_ptr    <= '0;
             sel_port  <= '0;

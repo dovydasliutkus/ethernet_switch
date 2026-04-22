@@ -56,7 +56,7 @@ module mac_learner (
     logic [11:0] src_hash_reg; 
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (!reset) begin
             // Reset FSM and pipeline (BRAMs clear on power-up)
             state    <= IDLE;
             done     <= 1'b0;

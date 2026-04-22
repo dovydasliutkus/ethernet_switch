@@ -215,12 +215,12 @@ module top_tb;
     // Main stimulus
     // ----------------------------------------------------------------
     initial begin
-        i_reset      = 1'b1;
+        i_reset      = 1'b0;
         port_rx_ctrl = 4'b0;
         foreach (port_rx_data[p]) port_rx_data[p] = 8'b0;
 
         repeat(4) @(posedge i_clk);
-        i_reset = 1'b0;
+        i_reset = 1'b1;
         repeat(2) @(posedge i_clk);
 
         read_packet_file(PACKET_FILE);

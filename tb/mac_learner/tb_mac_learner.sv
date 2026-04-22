@@ -67,13 +67,13 @@ module tb_mac_learner();
         $display("=== MAC LEARNER SIMULATION STARTED ===");
         
         // Initialize and Reset
-        reset = 1;
+        reset = 0;
         valid = 0;
         src_port = 0;
         src_mac = 0;
         dst_mac = 0;
         #20;
-        reset = 0;
+        reset = 1;
         #20;
 
         // --- TEST 1: Learn new MAC + Split Horizon Flood ---
