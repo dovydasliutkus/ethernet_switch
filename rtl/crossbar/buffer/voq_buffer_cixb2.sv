@@ -109,7 +109,7 @@ module voq_buffer_cixb2 #(
     //////////////////////////////////////////////////
 
     //////////////// Output registers ////////////////
-    always_ff @(posedge i_clk or negedge i_rst) begin
+    always_ff @(posedge i_clk) begin
         if (!i_rst) begin
             o_tx_data_r  <= '0;
             o_tx_ctrl_r <= '0;

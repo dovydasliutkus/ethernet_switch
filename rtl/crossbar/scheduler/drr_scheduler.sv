@@ -64,7 +64,7 @@ module drr_scheduler #(
     // rising edge detector
     logic [3:0] prev_valid;
 
-    always_ff @(posedge i_clk or negedge i_reset) begin
+    always_ff @(posedge i_clk) begin
         if (!i_reset) prev_valid <= '0;
         else        prev_valid <= i_pkt_valid;
     end
@@ -101,7 +101,7 @@ module drr_scheduler #(
         end
     end
 
-    always_ff @(posedge i_clk or negedge i_reset) begin
+    always_ff @(posedge i_clk) begin
         if (!i_reset) accepting <= '0;
         else          accepting <= will_accept; // to make sure wr_en doesnt go low mid transaction
     end
@@ -133,7 +133,7 @@ module drr_scheduler #(
 
     localparam [10:0] QUANTUM = MAX_PKT_SIZE[10:0];
 
-    always_ff @(posedge i_clk or negedge i_reset) begin
+    always_ff @(posedge i_clk) begin
         if (!i_reset) begin 
             state         <= S_SCAN;
             rr_ptr        <= '0;
