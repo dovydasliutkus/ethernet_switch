@@ -25,6 +25,10 @@ module switchcore (
     wire [3:0]  dst_port      [3:0];
     wire [7:0]  data          [3:0];
     wire [10:0] packet_length [3:0];
+    wire [31:0] data_flat;
+
+    // For fcs_control -> crossbar connection 
+    assign data_flat = {data[3], data[2], data[1], data[0]};
 
     // fcs_control instance
     fcs_control u_fcs_control (
@@ -57,6 +61,18 @@ module switchcore (
         .dst_mac  ( mac_dst_mac    ),
         .dst_port ( mac_dst_port   ),
         .done     ( mac_done       )
+    );
+
+    // crossbar_top instance
+    crossbar_top u_crossbar_top (
+        .i_clk       ( clk           ),
+        .i_rst       ( reset         ),
+        .i_data      ( data_flat     ),
+        .i_pkt_valid ( packet_valid  ),
+        .i_dst_port  ( dst_port      ),
+        .i_pkt_len   ( packet_length ),
+        .o_tx_data   ( tx_data       ),
+        .o_tx_ctrl   ( tx_ctrl       )
     );
 
 endmodule
