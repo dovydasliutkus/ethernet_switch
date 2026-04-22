@@ -10,7 +10,9 @@
 [testing:crossbar] The `crossbar` should check packet length before writing it into its FIFOs. CASE: All input ports streaming to one output port - The crossbar must take only full packets and not take partial packets which will make it transmit nothing.
 
 ## TODO
-- 
+- Add two dff synchronizer for reset
+- Adjust block diagrams to fit the real thing
+- Debug switch on fpga with 
 
 ---
 
@@ -35,3 +37,12 @@
 
 ## TODO
 - Send packet with bad CRC
+
+## 2026-04-22
+### Did
+- Fixed reset to be active-low in all modules (currently mixed sync and async)
+- Got direct connected example to work on DE-4 FPGA. Needed to set Ethernet IP to static. And enable a rule in the Windows firewall.
+
+![Set IP to static](../figures/set_static_eth_IP.png)
+![Firewall rule to enable ping](../figures/firewall_rule_for_ping.png)
+
