@@ -1,7 +1,4 @@
-// ============================================================
-// BASIC TESTS (T1–T3)
-// ============================================================
-
+// BASIC TESTS (just to test functionality)
 task automatic wait_cycles(int n);
     repeat (n) @(vif.cb);
 endtask
@@ -35,8 +32,6 @@ task automatic run_test_reset(output int err_cnt);
 
 endtask
 
-
-// T2: Single Packet Forwarding
 task automatic run_test_single_packet(output int err_cnt);
 
     int src = 0;
@@ -60,8 +55,6 @@ task automatic run_test_single_packet(output int err_cnt);
 
 endtask
 
-
-// T3: All Port Connectivity
 task automatic run_test_all_ports(output int err_cnt);
 
     int len = 6;

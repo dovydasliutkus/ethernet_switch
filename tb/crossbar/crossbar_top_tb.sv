@@ -34,7 +34,7 @@ module crossbar_top_tb;
         .o_tx_ctrl(vif.tx_ctrl)
     );
 
-    // ================= SCOREBOARD =================
+    // SCOREBOARD 
     task automatic run_scoreboard();
 
         int pass = 0;
@@ -70,7 +70,7 @@ module crossbar_top_tb;
     endtask
 
 
-    // ================= DEBUG PRINT =================
+    // DEBUG PRINT  (todo: needs beautifying)
     task automatic print_cycle();
         $write("[%0t] ", $time);
 
@@ -85,10 +85,9 @@ module crossbar_top_tb;
     endtask
 
 
-    // ================= TESTS =================
-        // init mailboxes
+    //////////////////// TEST /////////////////////////
     initial begin
-
+        // init mailboxes
         foreach (exp_q[i]) exp_q[i] = new();
         foreach (act_q[i]) act_q[i] = new();
         foreach (len_q[i]) len_q[i] = new();
@@ -109,8 +108,6 @@ module crossbar_top_tb;
 
         test_small_contention_same_output();
         test_large_contention_same_output();
-
-        // test_back_to_back_same_flow();
 
         run_scoreboard();
 
@@ -191,15 +188,6 @@ module crossbar_top_tb;
     endtask
 
 
-    task automatic test_back_to_back_same_flow();
-
-        repeat (5) begin
-            drv.send_simple_packet(0, 1);
-        end
-
-        wait_for_completion(5);
-
-    endtask
 
 
 
@@ -212,51 +200,6 @@ module crossbar_top_tb;
 
 
     //////// WAIT TASK ///////////
-    // task automatic wait_for_completion(int expected);
-
-    //     int received;
-    //     int last_received;
-    //     int idle_cycles;
-    //     int start_count;
-    //     bit activity;
-         
-    //     received = 0;
-    //     last_received = 0;
-    //     idle_cycles = 0;
-
-    //     // starting point
-    //     start_count = 0;
-    //     for (int p = 0; p < PORTS; p++)
-    //         start_count += act_q[p].num();
-
-    //     while ((received - start_count) < expected) begin
-    //         @(vif.cb);
-
-    //         received = 0;
-    //         activity = 0;
-
-    //         for (int p = 0; p < PORTS; p++) begin
-    //             received += act_q[p].num();
-    //             activity |= vif.tx_ctrl[p];  // fix for BACK-TO-BACK test
-    //         end
-
-    //         if ((received == last_received) && !activity)
-    //             idle_cycles++;
-    //         else
-    //             idle_cycles = 0;
-
-    //         last_received = received;
-
-    //         if (idle_cycles > 2000) begin
-    //             $error("Stalled: no packets arriving");
-    //             break;
-    //         end
-    //     end
-
-    //     $display("[%0t] Completed: %0d new packets received",
-    //             $time, received - start_count);
-
-    // endtask
     task automatic wait_for_completion(int expected);
 
         int received;
@@ -280,7 +223,7 @@ module crossbar_top_tb;
             for (int p = 0; p < PORTS; p++)
                 received += act_q[p].num();
 
-            // check completion (relative to this test)
+            // check completion (relative to this test's starting point)
             if ((received - start_count) >= expected)
                 break;
 
@@ -298,8 +241,7 @@ module crossbar_top_tb;
             end
         end
 
-        $display("[%0t] Completed: %0d packets",
-                $time, received - start_count);
+        $display("[%0t] Completed: %0d packets",$time, received - start_count);
 
     endtask
 

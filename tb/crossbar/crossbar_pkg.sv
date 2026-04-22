@@ -51,7 +51,7 @@ package crossbar_pkg;
         endtask
 
 
-        // GENERIC PACKET
+        // GENERIC PACKET (0x0, 0x1, ..., 0xN-1)
         task send_packet(int src, int dst, int len);
 
             packet pkt = new(src, dst, len);
@@ -82,7 +82,7 @@ package crossbar_pkg;
         endtask
 
 
-        // SIMPLE PACKET (LEN=8, for debugging)
+        // SIMPLE PACKET // LEN=8, for debugging
         task send_simple_packet(int src, int dst);
             send_packet(src, dst, 8);
         endtask
@@ -90,7 +90,7 @@ package crossbar_pkg;
     endclass
 
 
-    // TX MONITOR (length aware monitor)
+    // TX MONITOR
     class tx_monitor #(parameter DATA_W=8, PORTS=4, LEN_WIDTH=11);
 
         virtual crossbar_if #(DATA_W,PORTS,LEN_WIDTH) vif;
