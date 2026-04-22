@@ -79,10 +79,19 @@ module crossbar_top #(
         end
     end
 
+    logic [PORTS-1:0] dst_col [PORTS-1:0];    // To store the columns
+
+    always_comb begin
+        for (int i = 0; i < PORTS; i++) begin
+            for (int j = 0; j < PORTS; j++) begin
+                dst_col[i][j] = i_dst_port[j][i];
+            end
+        end
+    end
+
     generate
         for (i = 0; i < PORTS; i++) begin : gen_sched
             drr_scheduler #(
-                .PORT_ID(i),
                 .MAX_PKT_SIZE(MAX_PKT_SIZE),
                 .LEN_WIDTH(LEN_WIDTH),
                 .FIFO_DEPTH(FIFO_DEPTH),
@@ -91,7 +100,7 @@ module crossbar_top #(
                 .i_clk(i_clk),
                 .i_reset(i_rst),
                 .i_pkt_valid(i_pkt_valid),
-                .i_dst_port(i_dst_port),
+                .i_dst_port(dst_col[i]),
                 .i_pkt_len(i_pkt_len),
                 .i_buffer_usedw(usedw_col[i]),
                 .i_buffer_full(full_col[i]),
