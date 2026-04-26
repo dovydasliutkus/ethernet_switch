@@ -1,10 +1,9 @@
 interface switch_if (input logic clk);
 
-    logic        clk;
     logic      reset;
 
     // // Activity indicators
-    logic [3:0]  link_sync,   // High indicates a peer connection at the physical layer (cable plugged in)
+    logic [3:0]  link_sync;   // High indicates a peer connection at the physical layer (cable plugged in)
 
     // Four GMII interfaces
     logic  [31:0] tx_data;     // (7:0)=TXD0 ... (31:24)=TXD3
