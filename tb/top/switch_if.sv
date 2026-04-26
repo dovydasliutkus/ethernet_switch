@@ -15,8 +15,8 @@ interface switch_if (input logic clk);
 
     clocking cb @(posedge clk);
         output link_sync;
-        input tx_data;   
-        input tx_ctrl;  
+        input  tx_data;   
+        input  tx_ctrl;  
         output rx_data;  
         output rx_ctrl;    
     endclocking
