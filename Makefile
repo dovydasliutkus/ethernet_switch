@@ -92,11 +92,12 @@ TOP_SV_FILES = \
 
 
 TOP_TB_FILES = \
-	$(TB)/top/switch_top_tb.sv \
 	$(TB)/top/switch_pkg.sv \
-	$(TB)/top/switch_if.sv
+	$(TB)/top/switch_if.sv \
+	$(TB)/top/switch_top_tb.sv \
+	
 
-# TOP = top_tb
+TOP = switch_top_tb
 
 ############################# TARGETS ################################
 
