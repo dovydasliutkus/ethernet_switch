@@ -1,5 +1,46 @@
 package switch_pkg;
 
+//////////////////// TEST CONFIGURATION TYPES ////////////////////
+
+/*TODO
+TEST CONFIGURATION TYPES
+  Defines parameters used to describe test scenarios (traffic pattern,
+  packet size and load). These will later be used by the testbench and
+  driver to generate different traffic behaviors, enabling reusable and
+ scalable regression testing (e.g. via a sanity.tl file).
+ */
+
+typedef enum {
+  SINGLE,
+  INDEPENDENT,
+  CONTENTION,
+  ALL_TO_ONE
+} traffic_pattern_e;
+
+typedef enum {
+  FIXED,
+  MIXED
+} pkt_size_e;
+
+typedef enum {
+  LOW,
+  HIGH
+} load_e;
+
+// Holds one test scenario configuration
+// pattern: traffic mapping between ports
+// pkt_size: fixed or mixed packet sizes
+// load: low (with gaps) or high (back-to-back)
+// fixed_len: packet length when pkt_size is equal to FIXED
+
+class test_cfg;
+  traffic_pattern_e pattern;
+  pkt_size_e        pkt_size;
+  load_e            load;
+  int               fixed_len;
+endclass
+
+
 // FRAME CLASS
 class frame;
 

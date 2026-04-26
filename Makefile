@@ -89,6 +89,9 @@ TOP = switch_top_tb
 
 ############################# TARGETS ################################
 
+regr: compile
+	$(VSIM) $(TOP) -do "do wave_top.do; run -all"
+
 # Test for TOP
 all: compile
 
