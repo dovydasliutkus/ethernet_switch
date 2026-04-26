@@ -23,9 +23,10 @@ module switch_top_tb;
     // ---------------------------------------------------
     switch_if vif(clk);
 
-    mailbox #(eth_frame)      exp_q        [PORTS]; // outgoing log, indexed by who sent
-    mailbox #(eth_frame)      egress_exp_q [PORTS]; // expected delivery, indexed by who should receive
-    mailbox #(captured_frame) act_q        [PORTS]; // what arrived, indexed by who received it
+    mailbox #(frame)      exp_q        [PORTS]; // outgoing log, indexed by who sent
+    mailbox #(frame)      egress_exp_q [PORTS]; // expected delivery, indexed by who should receive
+    //mailbox #(captured_frame) act_q        [PORTS]; // what arrived, indexed by who received it
+
 
     switchcore dut (
         .clk       ( clk           ),
@@ -36,5 +37,7 @@ module switch_top_tb;
         .rx_data   ( vif.rx_data   ),
         .rx_ctrl   ( vif.rx_ctrl   )
     );
+
+
 
 endmodule
