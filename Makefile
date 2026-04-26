@@ -7,10 +7,10 @@ VLOG_OPT = -timescale=1ns/1ps
 WORK = work
 
 # Altera library path for newest version of Quartus
-# ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
+ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
 
 # Altera library path for older version of Quartus
-ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+# ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
 
 
 RTL = rtl
@@ -32,8 +32,8 @@ CROSSBAR_TB_FILES = \
 	$(TB)/crossbar/crossbar_top_tb.sv 
 
 # INCLUDE_FILES = \
-# 	$(TB)/schedueler/test_sequences.svh \
-# 	$(TB)/schedueler/helper_tasks.svh \
+# 	$(TB)/crossbar/scheduler/test_sequences.svh \
+# 	$(TB)/crossbar/scheduler/helper_tasks.svh \
 
 
 
@@ -46,7 +46,7 @@ SCHEDULER_SV_FILES = \
 	$(RTL)/crossbar/FIFOs/pkt_len_fifo.v
 
 SCHEDULER_TB_FILES = \
-	$(TB)/scheduler/tb_drr_scheduler.sv \
+	$(TB)/crossbar/scheduler/tb_drr_scheduler.sv \
 
 SCHEDULER_TOP = tb_drr_scheduler
 
@@ -90,10 +90,13 @@ TOP_SV_FILES = \
 	$(RTL)/mac_learner/mac_learner.sv \
 	$(RTL)/switchcore.sv \
 
-TOP_TB_FILES = \
-	$(TB)/top_tb.sv
 
-TOP = top_tb
+TOP_TB_FILES = \
+	$(TB)/top/switch_top_tb.sv \
+	$(TB)/top/switch_pkg.sv \
+	$(TB)/top/switch_if.sv
+
+# TOP = top_tb
 
 ############################# TARGETS ################################
 
