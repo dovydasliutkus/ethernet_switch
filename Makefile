@@ -2,9 +2,10 @@ VLIB = vlib
 VLOG = vlog
 VSIM = vsim
 
-VLOG_OPT = -timescale=1ns/1ps
+VLOG_OPT = -timescale=1ns/1ps -svinputport=net
 
 WORK = work
+LOG_DIR = logs
 
 # Altera library path for newest version of Quartus
 ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
@@ -15,6 +16,7 @@ ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
 
 RTL = rtl
 TB = tb
+
 ################################ CROSSBAR ################################
 CROSSBAR_SV_FILES = \
 	$(RTL)/crossbar/buffer/voq_buffer_cixb2.sv \
@@ -35,20 +37,7 @@ CROSSBAR_TB_FILES = \
 # 	$(TB)/crossbar/scheduler/test_sequences.svh \
 # 	$(TB)/crossbar/scheduler/helper_tasks.svh \
 
-
-
-# tmp top, should be crossbar_tb.sv when crossbar is done
 CROSSBAR_TOP = crossbar_top_tb
-
-################################ SCHEDULER ################################
-SCHEDULER_SV_FILES = \
-	$(RTL)/crossbar/scheduler/drr_scheduler.sv \
-	$(RTL)/crossbar/FIFOs/pkt_len_fifo.v
-
-SCHEDULER_TB_FILES = \
-	$(TB)/crossbar/scheduler/tb_drr_scheduler.sv \
-
-SCHEDULER_TOP = tb_drr_scheduler
 
 ############################# FCS CONTROL ################################
 # Test for crc_calculator
@@ -85,7 +74,6 @@ FCS_TOP = fcs_control_tb
 
 TOP_SV_FILES = \
 	$(FCS_SV_FILES) \
-	$(SCHEDULER_SV_FILES) \
 	$(CROSSBAR_SV_FILES) \
 	$(RTL)/mac_learner/mac_learner.sv \
 	$(RTL)/switchcore.sv \
@@ -105,6 +93,7 @@ TOP = switch_top_tb
 all: compile
 
 compile:
+	@if not exist $(LOG_DIR) mkdir $(LOG_DIR)
 	$(VLIB) $(WORK)
 	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
 	$(VLOG) $(VLOG_OPT) $(TOP_SV_FILES) $(TOP_TB_FILES)
@@ -113,7 +102,7 @@ sim: compile
 	$(VSIM) $(TOP) -do "do wave_top.do; run -all"
 
 batch: compile
-	$(VSIM) -c $(TOP) -do "run -all; quit"
+	$(VSIM) -c $(TOP) -do "run -all; quit" -l $(LOG_DIR)/$(TOP).log
 
 
 # Test for crc_calculator
