@@ -33,3 +33,5 @@ fpga/template/*
 doc/8023-2022.pdf
 *.ppt
 rtl/fcs_control/FIFOs_old
+tb/packet_diff_formats.txt
+tb/packet.txt
