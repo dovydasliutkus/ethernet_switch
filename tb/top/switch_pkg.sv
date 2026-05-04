@@ -1,224 +1,346 @@
 package switch_pkg;
 
-//////////////////// TEST CONFIGURATION TYPES ////////////////////
+//////////////////// FRAME ////////////////////
 
-/*TODO
-TEST CONFIGURATION TYPES
-  Defines parameters used to describe test scenarios (traffic pattern,
-  packet size and load). These will later be used by the testbench and
-  driver to generate different traffic behaviors, enabling reusable and
- scalable regression testing (e.g. via a sanity.tl file).
- */
-
-typedef enum {
-  SINGLE,
-  INDEPENDENT,
-  CONTENTION,
-  ALL_TO_ONE
-} traffic_pattern_e;
-
-typedef enum {
-  FIXED,
-  MIXED
-} pkt_size_e;
-
-typedef enum {
-  LOW,
-  HIGH
-} load_e;
-
-// Holds one test scenario configuration
-// pattern: traffic mapping between ports
-// pkt_size: fixed or mixed packet sizes
-// load: low (with gaps) or high (back-to-back)
-// fixed_len: packet length when pkt_size is equal to FIXED
-
-class test_cfg;
-  traffic_pattern_e pattern;
-  pkt_size_e        pkt_size;
-  load_e            load;
-  int               fixed_len;
-endclass
-
-
-// FRAME CLASS
 class frame;
 
-  int src_port; 
-  int dst_port;
-  byte data[$]; // dynmamic queue of bytes w. push, pop
+    bit [47:0] src_mac;
+    bit [47:0] dst_mac;
 
-  function new(int src_port, int dst_port); // constructor for frame
-    this.src_port = src_port; // TODO: THIS IS JUST FOR DEBUGGING. IT IS NOT USED. BUT CAN BE USED FOR MAC LEARNER LATER
-    this.dst_port = dst_port;
-  endfunction
+    int src_port;
+    bit [3:0] dst_port; // expected output mask
 
-endclass
+    byte data[$];
 
-// DRIVER
-class switch_driver #(parameter PORTS=4, DATA_W=8); // todo: IT IS FIXED ANYWAY, SO WE CAN PROBABLY REMOVE THESE PARAMETERS
-
-  virtual switch_if vif;
-
-  mailbox #(frame) exp_q[PORTS]; // array of per-port mailboxes holding expected frame handles
-
-  function new(  // constructor for switch_driver class
-    virtual switch_if vif,
-    mailbox #(frame) exp_q[PORTS]
-  );
-    this.vif   = vif;
-    this.exp_q = exp_q;
-  endfunction
-
-  ////////////////// DRIVER TASKS ////////////////////
-
-  // RESET
-  task reset();
-    vif.reset <= 0; // active low reset
-    vif.cb.rx_ctrl <= '0;
-    vif.cb.rx_data <= '0;
-    repeat (5) @(vif.cb);
-
-    vif.reset <= 1;
-    repeat (5) @(vif.cb);
-
-  endtask
-
-
-  // SEND FRAME 
-  task send_frame(int port, frame f);
-
-    // publish expected
-    exp_q[f.dst_port].put(f); // put=push_back, get=pop_front for mailbox
-
-    // wait one cycle before start
-    vif.cb.rx_ctrl[port] <= 0;
-    @(vif.cb);
-
-    // send bytes
-    foreach (f.data[i]) begin // for as long as there are bytes in the frame,
-                              // send them one by one on the interface
-      vif.cb.rx_ctrl[port] <= 1;
-      vif.cb.rx_data[port*DATA_W +: DATA_W] <= f.data[i];
-      @(vif.cb);
-    end
-
-    // end of frame
-    vif.cb.rx_ctrl[port] <= 0;
-    @(vif.cb);
-
-  endtask
-
-
-  // SIMPLE FRAME GENERATOR
-  task send_simple_frame(int src, int dst, int len);
-    // generate frame with data 0,1,...,len-1
-    frame f = new(src, dst);
-
-    for (int i = 0; i < len; i++) begin
-      f.data.push_back(i);
-    end
-
-    send_frame(src, f);
-
-  endtask
-
-endclass
-
-// TX MONITOR
-class tx_monitor #(parameter PORTS=4, DATA_W=8); // todo: IT IS FIXED ANYWAY, SO WE CAN PROBABLY REMOVE THESE PARAMETERS
-
-  virtual switch_if vif;
-
-  mailbox #(frame) act_q[PORTS]; // array of per-port mailboxes holding actual frame handles
-
-  function new( // constructor for tx_monitor class
-    virtual switch_if vif,
-    mailbox #(frame) act_q[PORTS]
-  );
-    this.vif   = vif;
-    this.act_q = act_q;
-  endfunction
-
-
-  task run(); // runs forever
-    // local variables to hold incoming frame data
-    frame pkt[PORTS]; 
-    bit   active[PORTS];
-    byte d;
-
-    foreach (active[p]) begin // all ports start as inactive
-      active[p] = 0;
-    end
-
-    forever begin
-      @(vif.cb);
-
-      for (int p = 0; p < PORTS; p++) begin
-
-        if (vif.cb.tx_ctrl[p]) begin 
-          // start of frame
-          if (!active[p]) begin
-            pkt[p] = new(-1, p); // -1 as src_port means unknown src_port
-            active[p] = 1; // mark port as active
-          end
-
-          d = vif.cb.tx_data[p*8 +: 8]; // extract the byte for this port
-          pkt[p].data.push_back(d);     // append byte to frame.data
-
-        end else if (active[p]) begin
-          // end of frame
-          act_q[p].put(pkt[p]); // publish the complete frame to the monitor's mailbox
-          active[p] = 0;
-        end
-
-      end
-    end
-  endtask
-endclass
-
-// SIMPLE SCOREBOARD
-class scoreboard #(parameter PORTS=4); // todo: IT IS FIXED ANYWAY, SO WE CAN PROBABLY REMOVE THESE PARAMETER
-
-    mailbox #(frame) exp_q[PORTS]; // expected frames from driver
-    mailbox #(frame) act_q[PORTS]; // actual frames from monitor
-
-    function new( // constructor for scoreboard class
-      mailbox #(frame) exp_q[PORTS],
-      mailbox #(frame) act_q[PORTS]
+    function new(
+        bit [47:0] src_mac,
+        bit [47:0] dst_mac,
+        int src_port
     );
-      this.exp_q = exp_q;
-      this.act_q = act_q;
+        this.src_mac  = src_mac;
+        this.dst_mac  = dst_mac;
+        this.src_port = src_port;
+
+        $display("[%0t] FRAME: created src=%h dst=%h in_port=%0d",
+                $time, src_mac, dst_mac, src_port);
     endfunction
 
+    // CRC32 -- tried to match crc calculator, still not working
+    function automatic bit [31:0] eth_crc32(byte data[$]);
 
-    task run(); // runs forever
-      // local variables to hold expected and actual frames for comparison
-      frame exp_pkt, act_pkt;
+        bit [31:0] crc = 32'hFFFFFFFF;
+        bit fb;
 
-      forever begin
-        for (int p = 0; p < PORTS; p++) begin
-
-          if (exp_q[p].num() > 0 && act_q[p].num() > 0) begin // check if data is available, else the next line will block
-
-            exp_q[p].get(exp_pkt); // get expected frame from driver
-            act_q[p].get(act_pkt); // get actual frame from monitor
-
-            // compare length
-            if (exp_pkt.data.size() != act_pkt.data.size()) begin // if exp. bytes != act. bytes
-              $error("Port %0d: length mismatch exp=%0d act=%0d",p, exp_pkt.data.size(), act_pkt.data.size());
-              continue; // throw error and skip data comparison
+        foreach (data[i]) begin
+            for (int b = 7; b >= 0; b--) begin
+                fb = data[i][b] ^ crc[31];
+                crc = {crc[30:0], 1'b0};
+                if (fb)
+                    crc ^= 32'h04C11DB7;
             end
-
-            // compare data
-            foreach (exp_pkt.data[i]) begin
-              if (exp_pkt.data[i] != act_pkt.data[i]) begin
-                $error("Port %0d: data mismatch at %0d exp=%0h act=%0h", p, i, exp_pkt.data[i], act_pkt.data[i]);
-              end
-            end
-          end
         end
-      end
+
+        return crc;
+    endfunction
+
+    // Build Ethernet-like frame: [DST][SRC][TYPE][PAYLOAD][FCS]
+    function void build(int payload_len = 46);
+
+        byte proc[$];
+        bit [31:0] fcs;
+
+        $display("[%0t] FRAME: building packet...", $time);
+
+        data.delete();
+
+        // DST MAC
+        for (int i = 5; i >= 0; i--) begin
+            byte b = dst_mac >> (i*8);
+            data.push_back(b);
+            $display("  DST byte[%0d] = %02x", 5-i, b);
+        end
+
+        // SRC MAC
+        for (int i = 5; i >= 0; i--) begin
+            byte b = src_mac >> (i*8);
+            data.push_back(b);
+            $display("  SRC byte[%0d] = %02x", 5-i, b);
+        end
+
+        // EtherType (dummy)
+        data.push_back(8'h08);
+        data.push_back(8'h00);
+
+        $display("  TYPE = 0800");
+
+        // Payload
+        for (int i = 0; i < payload_len; i++) begin
+            data.push_back(i);
+        end
+
+        // FIX: Match  CRC calculator preprocessing (invert first 4 bytes)
+        foreach (data[i]) begin
+            byte b = data[i];
+            if (i < 4)
+                b = ~b;
+            proc.push_back(b);
+        end
+
+        fcs = eth_crc32(proc);
+
+        $display("  FCS = %08x", fcs);
+
+        // append LSB-first
+        for (int i = 3; i >= 0; i--) begin
+            byte b = fcs >> (i*8);
+            data.push_back(b);
+            $display("  FCS byte[%0d] = %02x", i, b);
+        end
+
+        $display("[%0t] FRAME: build complete, size=%0d",
+                $time, data.size());
+
+    endfunction
+
+    task test_known_packet(); // from exercise 2
+
+        byte pkt[$] = '{
+            8'h00,8'h10,8'hA4,8'h7B,8'hEA,8'h80,
+            8'h00,8'h12,8'h34,8'h56,8'h78,8'h90,
+            8'h08,8'h00,
+            8'h45,8'h00,8'h00,8'h2E,8'hB3,8'hFE,8'h00,8'h00,
+            8'h80,8'h11,8'h05,8'h40,
+            8'hC0,8'hA8,8'h00,8'h2C,
+            8'hC0,8'hA8,8'h00,8'h04,
+            8'h04,8'h00,8'h04,8'h00,8'h00,8'h1A,
+            8'h2D,8'hE8,
+            8'h00,8'h01,8'h02,8'h03,8'h04,8'h05,
+            8'h06,8'h07,8'h08,8'h09,8'h0A,8'h0B,
+            8'h0C,8'h0D,8'h0E,8'h0F,8'h10,8'h11
+        };
+
+        bit [31:0] crc;
+
+        crc = eth_crc32(pkt);
+
+        $display("EXPECTED CRC = E6C53DB2");
+        $display("CALC CRC     = %08x", crc);
+
     endtask
-  endclass
+
+endclass
+
+//////////////////// DRIVER ////////////////////
+
+class switch_driver #(parameter PORTS=4, DATA_W=8);
+
+    virtual switch_if vif;
+    mailbox #(frame) exp_q[PORTS];
+
+    function new(
+        virtual switch_if vif,
+        mailbox #(frame) exp_q[PORTS]
+    );
+        this.vif   = vif;
+        this.exp_q = exp_q;
+
+        $display("[%0t] DRV: constructed", $time);
+    endfunction
+
+    ////////////////// RESET //////////////////
+
+    task reset();
+        $display("[%0t] DRV: reset start", $time);
+
+        vif.reset <= 0;
+        vif.cb.rx_ctrl <= '0;
+        vif.cb.rx_data <= '0;
+
+        repeat (5) @(vif.cb);
+
+        vif.reset <= 1;
+
+        repeat (5) @(vif.cb);
+
+        $display("[%0t] DRV: reset done", $time);
+    endtask
+
+    ////////////////// EXPECTED MODEL //////////////////
+
+    bit [3:0] mac_table [bit[47:0]];
+
+    function bit [3:0] compute_expected(frame f);
+
+        bit [3:0] mask;
+
+        if (mac_table.exists(f.dst_mac))
+            mask = (1 << mac_table[f.dst_mac]);
+        else
+            mask = 4'b1111 & ~(1 << f.src_port);
+
+        mac_table[f.src_mac] = f.src_port;
+
+        return mask;
+
+    endfunction
+
+    ////////////////// SEND FRAME //////////////////
+
+    task send_frame(frame f);
+
+        int port = f.src_port;
+
+        f.build();
+        f.dst_port = compute_expected(f);
+
+        for (int p = 0; p < PORTS; p++)
+            if (f.dst_port[p])
+                exp_q[p].put(f);
+
+        vif.cb.rx_ctrl[port] <= 0;
+        @(vif.cb);
+
+        foreach (f.data[i]) begin
+            vif.cb.rx_ctrl[port] <= 1;
+            vif.cb.rx_data[port*DATA_W +: DATA_W] <= f.data[i];
+            @(vif.cb);
+        end
+
+        vif.cb.rx_ctrl[port] <= 0;
+        @(vif.cb);
+
+    endtask
+
+    ////////////////// SIMPLE GENERATOR //////////////////
+
+    task send_simple_frame(
+        int src_port,
+        bit [47:0] src_mac,
+        bit [47:0] dst_mac
+    );
+
+        frame f = new(src_mac, dst_mac, src_port);
+        send_frame(f);
+
+    endtask
+
+endclass
+
+//////////////////// TX MONITOR ////////////////////
+
+class tx_monitor #(parameter PORTS=4, DATA_W=8);
+
+    virtual switch_if vif;
+    mailbox #(frame) act_q[PORTS];
+
+    function new(
+        virtual switch_if vif,
+        mailbox #(frame) act_q[PORTS]
+    );
+        this.vif   = vif;
+        this.act_q = act_q;
+    endfunction
+
+    function void decode_mac(frame f);
+
+        f.dst_mac = 0;
+        f.src_mac = 0;
+
+        for (int i = 0; i < 6; i++)
+            f.dst_mac = (f.dst_mac << 8) | f.data[i];
+
+        for (int i = 6; i < 12; i++)
+            f.src_mac = (f.src_mac << 8) | f.data[i];
+
+    endfunction
+
+    task run();
+
+        frame pkt[PORTS];
+        bit   active[PORTS];
+        byte  d;
+
+        foreach (active[p]) active[p] = 0;
+
+        forever begin
+            @(vif.cb);
+
+            for (int p = 0; p < PORTS; p++) begin
+
+                if (vif.cb.tx_ctrl[p]) begin
+
+                    if (!active[p]) begin
+                        pkt[p] = new(48'h0, 48'h0, p);
+                        active[p] = 1;
+                    end
+
+                    d = vif.cb.tx_data[p*8 +: 8];
+                    pkt[p].data.push_back(d);
+
+                end
+                else if (active[p]) begin
+
+                    decode_mac(pkt[p]);
+                    act_q[p].put(pkt[p]);
+                    active[p] = 0;
+
+                end
+            end
+        end
+
+    endtask
+
+endclass
+
+//////////////////// SCOREBOARD ////////////////////
+
+class scoreboard #(parameter PORTS=4);
+
+    virtual switch_if vif;
+
+    mailbox #(frame) exp_q[PORTS];
+    mailbox #(frame) act_q[PORTS];
+
+    function new(
+        virtual switch_if vif,
+        mailbox #(frame) exp_q[PORTS],
+        mailbox #(frame) act_q[PORTS]
+    );
+        this.vif   = vif;
+        this.exp_q = exp_q;
+        this.act_q = act_q;
+    endfunction
+
+    task run();
+
+        frame exp_pkt, act_pkt;
+
+        forever begin
+
+            @(vif.cb);
+
+            for (int p = 0; p < PORTS; p++) begin
+
+                if (exp_q[p].num() > 0 && act_q[p].num() > 0) begin
+
+                    exp_q[p].get(exp_pkt);
+                    act_q[p].get(act_pkt);
+
+                    if (exp_pkt.data.size() != act_pkt.data.size()) begin
+                        $error("Port %0d: length mismatch", p);
+                        continue;
+                    end
+
+                    foreach (exp_pkt.data[i])
+                        if (exp_pkt.data[i] != act_pkt.data[i])
+                            $error("Port %0d: data mismatch at %0d", p, i);
+
+                end
+            end
+        end
+
+    endtask
+
+endclass
+
 endpackage

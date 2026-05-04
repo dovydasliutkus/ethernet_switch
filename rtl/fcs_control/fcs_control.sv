@@ -55,10 +55,10 @@ module fcs_control(
                 .i_srcmac_ren    ( w_srcmac_ren[i]      ),
                 .i_dstmac_ren    ( w_dstmac_ren[i]      ),
                 .o_status_empty  ( w_status_empty[i]    ),
-                .o_length_empty  (),  // Unused fifo signals
-                .o_srcmac_empty  (),
-                .o_dstmac_empty  ()
-            );
+                .o_length_empty  (),  // Unused fifo signals  // TODO WHY IS IT UNCONNECTED
+                .o_srcmac_empty  (),                          // TODO WHY IS IT UNCONNECTED
+                .o_dstmac_empty  ()                           // TODO WHY IS IT UNCONNECTED
+            );  
         end
     endgenerate
 
