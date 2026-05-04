@@ -214,5 +214,8 @@ module drr_scheduler #(
     //     $display("[%0t] SCHED %0d | rr_ptr=%0d | len_empty=%b | deficit=%0d",
     //         $time, PORT_ID, rr_ptr, len_empty[rr_ptr], deficit[rr_ptr]);
     // end
+    always @(posedge i_clk) begin
+    $display("cycle dst_port = %b", i_dst_port);
+    end
 endmodule
    

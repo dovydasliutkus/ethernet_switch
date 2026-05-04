@@ -178,7 +178,8 @@ module crc_calculator(
                 counter_n = counter + 1;
             end else begin
                  $display("[%0t] CRC REM = %08x", $time, rem_reg);
-                crc_valid  = (rem_reg == 32'hFFFF_FFFF);
+                // crc_valid  = (rem_reg == 32'hFFFF_FFFF);
+                crc_valid = (rem_reg == 32'h0000_0000);
                 // crc_valid = 1'b1;// amal debug
                 length_wen = 1'b1;  // push byte count into length FIFO
                 status_wen = 1'b1;  // push CRC result into status FIFO

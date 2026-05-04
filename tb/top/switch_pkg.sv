@@ -25,29 +25,49 @@ class frame;
                 $time, src_mac, dst_mac, src_port);
     endfunction
 
-    // CRC32 
+    // CORRECT CRC32 CALCULATOR 
+    // function automatic bit [31:0] eth_crc32(byte data[$]);
+
+    //     bit [31:0] crc = 32'hFFFFFFFF;
+    //     bit fb;
+
+    //     foreach (data[i]) begin
+    //         byte d = data[i];
+
+    //         // uses https://github.com/amal-araweelo/34349_fpga_comm_exercises/blob/main/ex1_ethernet_fcs/tb/src/fcs_pkg.sv
+    //         for (int b = 7; b >= 0; b--) begin
+    //             fb = d[b] ^ crc[31];
+    //             crc = {crc[30:0], 1'b0};
+    //             if (fb)
+    //                 crc ^= 32'h04C11DB7;
+    //         end
+    //     end
+
+    //     return ~crc;
+
+    // endfunction
+
+    // MATCHES DUT CRC CALCULATOR
     function automatic bit [31:0] eth_crc32(byte data[$]);
 
-        bit [31:0] crc = 32'hFFFFFFFF;
-        bit fb;
+        bit [31:0] crc = 32'h00000000;
 
         foreach (data[i]) begin
-            byte d = data[i];
+            bit [7:0] d = data[i];
 
-            // uses https://github.com/amal-araweelo/34349_fpga_comm_exercises/blob/main/ex1_ethernet_fcs/tb/src/fcs_pkg.sv
-            for (int b = 7; b >= 0; b--) begin
-                fb = d[b] ^ crc[31];
+            for (int b = 0; b < 8; b++) begin
+                bit fb = crc[31] ^ d[7];
                 crc = {crc[30:0], 1'b0};
                 if (fb)
                     crc ^= 32'h04C11DB7;
+                d = {d[6:0],1'b0};
             end
         end
 
-        return ~crc;
-
+        return crc;
     endfunction
 
-    // Build Ethernet-like frame: [DST][SRC][TYPE][PAYLOAD][FCS]
+    // build Ethernet like frame: [DST][SRC][TYPE][PAYLOAD][FCS]
     function void build(int payload_len = 46);
 
         byte proc[$];
@@ -191,6 +211,25 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
 
     endfunction
 
+    ////////////////// DEEP COPY FUNCTION //////////////////
+
+    function frame copy_frame(frame f);
+
+        frame c = new(f.src_mac, f.dst_mac, f.src_port);
+
+        // copy dst_port as well
+        c.dst_port = f.dst_port;
+
+        // deep copy of data array
+        c.data = f.data;
+        for (int i = 0; i < f.data.size(); i++) begin
+            c.data[i] = f.data[i];
+        end
+
+        return c;
+
+    endfunction
+
     ////////////////// SEND FRAME //////////////////
 
     task send_frame(frame f);
@@ -200,9 +239,13 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
         f.build();
         f.dst_port = compute_expected(f);
 
-        for (int p = 0; p < PORTS; p++)
-            if (f.dst_port[p])
-                exp_q[p].put(f);
+        // push deep copies into each expected queue
+        for (int p = 0; p < PORTS; p++) begin
+            if (f.dst_port[p]) begin
+                frame f_copy = copy_frame(f);
+                exp_q[p].put(f_copy);
+            end
+        end
 
         vif.cb.rx_ctrl[port] <= 0;
         @(vif.cb);
@@ -235,10 +278,14 @@ endclass
 
 //////////////////// TX MONITOR ////////////////////
 
+
 class tx_monitor #(parameter PORTS=4, DATA_W=8);
 
     virtual switch_if vif;
     mailbox #(frame) act_q[PORTS];
+
+    // added frame counters per port
+    int frame_count[PORTS];
 
     function new(
         virtual switch_if vif,
@@ -267,7 +314,11 @@ class tx_monitor #(parameter PORTS=4, DATA_W=8);
         bit   active[PORTS];
         byte  d;
 
-        foreach (active[p]) active[p] = 0;
+        // initialize state
+        foreach (active[p]) begin
+            active[p] = 0;
+            frame_count[p] = 0;
+        end
 
         forever begin
             @(vif.cb);
@@ -288,7 +339,21 @@ class tx_monitor #(parameter PORTS=4, DATA_W=8);
                 else if (active[p]) begin
 
                     decode_mac(pkt[p]);
+
+                    // PRINT FULL PACKET
+                    $write("[%0t] TX PORT %0d FRAME (%0d bytes): ",
+                        $time, p, pkt[p].data.size());
+
+                    foreach (pkt[p].data[i]) begin
+                        $write("%02x ", pkt[p].data[i]);
+                    end
+                    $display("");
+
                     act_q[p].put(pkt[p]);
+
+                    // increment frame counter
+                    frame_count[p]++;
+
                     active[p] = 0;
 
                 end
@@ -298,7 +363,6 @@ class tx_monitor #(parameter PORTS=4, DATA_W=8);
     endtask
 
 endclass
-
 //////////////////// SCOREBOARD ////////////////////
 
 class scoreboard #(parameter PORTS=4);
@@ -307,6 +371,9 @@ class scoreboard #(parameter PORTS=4);
 
     mailbox #(frame) exp_q[PORTS];
     mailbox #(frame) act_q[PORTS];
+
+    int error_count = 0;
+    int compare_count = 0;
 
     function new(
         virtual switch_if vif,
@@ -318,36 +385,71 @@ class scoreboard #(parameter PORTS=4);
         this.act_q = act_q;
     endfunction
 
+
     task run();
 
         frame exp_pkt, act_pkt;
 
         forever begin
-
             @(vif.cb);
 
             for (int p = 0; p < PORTS; p++) begin
 
+                // EXPECTED + ACTUAL -> compare
                 if (exp_q[p].num() > 0 && act_q[p].num() > 0) begin
 
                     exp_q[p].get(exp_pkt);
                     act_q[p].get(act_pkt);
 
+                    compare_count++;
+
                     if (exp_pkt.data.size() != act_pkt.data.size()) begin
                         $error("Port %0d: length mismatch", p);
+                        error_count++;
                         continue;
                     end
 
-                    foreach (exp_pkt.data[i])
-                        if (exp_pkt.data[i] != act_pkt.data[i])
+                    foreach (exp_pkt.data[i]) begin
+                        if (exp_pkt.data[i] != act_pkt.data[i]) begin
                             $error("Port %0d: data mismatch at %0d", p, i);
-
+                            error_count++;
+                            break;
+                        end
+                    end
                 end
+
+                // UNEXPECTED ACTUAL
+                else if (act_q[p].num() > 0 && exp_q[p].num() == 0) begin
+                    act_q[p].get(act_pkt);
+                    $error("Port %0d: unexpected packet", p);
+                    error_count++;
+                end
+
+                // MISSING EXPECTED (optional but useful)
+                else if (exp_q[p].num() > 0 && act_q[p].num() == 0) begin
+                    // do nothing yet (could still arrive)
+                end
+
             end
         end
 
     endtask
 
-endclass
 
+    ////////////////// FINAL REPORT //////////////////
+
+    task report(string tc_name);
+
+        // small drain time to finish comparisons
+        repeat (10) @(vif.cb);
+
+        if (error_count == 0)
+            $display(" %s : PASS (%0d checks) ", tc_name, compare_count);
+        else
+            $display(" %s : FAIL (%0d errors, %0d checks)",
+                     tc_name, error_count, compare_count);
+
+    endtask
+
+endclass
 endpackage

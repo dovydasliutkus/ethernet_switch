@@ -17,6 +17,9 @@ module switch_top_tb;
     // MACs (FIXED LOCATION)
     bit [47:0] MAC0 = 48'h0000_0000_0001;
     bit [47:0] MAC1 = 48'h0000_0000_0002;
+    bit [47:0] MAC2 = 48'h0000_0000_0003;
+    bit [47:0] MAC3 = 48'h0000_0000_0004;
+
 
     // Mailboxes
     mailbox #(frame) exp_q [PORTS];
@@ -40,48 +43,55 @@ module switch_top_tb;
 
     // TEST
     // DEBUGGING CRC
-    initial begin
-        frame f = new(48'h0, 48'h0, 0);
-
-        f.test_known_packet();
-
-        $finish;
-    end
-
     // initial begin
-    //     // Mailboxes
-    //     for (int i = 0; i < PORTS; i++) begin
-    //         exp_q[i] = new();
-    //         act_q[i] = new();
-    //     end
+    //     frame f = new(48'h0, 48'h0, 0);
 
-    //     drv = new(vif, exp_q);
-    //     mon = new(vif, act_q);
-    //    sb  = new(vif, exp_q, act_q);
-    //     drv.reset();
+    //     f.test_known_packet();
 
-    //     // REQUIRED
-    //     vif.link_sync <= 4'b1111;
-
-    //     fork
-    //         mon.run();
-    //         sb.run();
-    //     join_none
-
-    // TC1 START
-    //     // Learn MAC1 on port 1
-    //     drv.send_simple_frame(1, MAC1, MAC0);
-    //     repeat (200) @(posedge clk);
-
-    //     // Send to MAC1 from port 0
-    //     drv.send_simple_frame(0, MAC0, MAC1);
-    //     repeat (500) @(posedge clk);
-
-    //     $display("TC1 DONE");
     //     $finish;
     // end
 
-    ////////// DEBUGGING, TX SIDE IS DEAD//////////////////////
+    initial begin
+        // Mailboxes
+        for (int i = 0; i < PORTS; i++) begin
+            exp_q[i] = new();
+            act_q[i] = new();
+        end
+
+        drv = new(vif, exp_q);
+        mon = new(vif, act_q);
+        sb  = new(vif, exp_q, act_q);
+        drv.reset();
+
+        // REQUIRED
+        vif.link_sync <= 4'b1111;
+
+        fork
+            mon.run();
+            sb.run();
+        join_none
+
+        tc1();
+        $finish();
+    end
+
+    /////////////// TEST CASES ////////////////////////
+    task automatic tc1();
+       
+        drv.send_simple_frame(1, MAC1, MAC0);
+        
+        wait (mon.frame_count[0] + mon.frame_count[2] + mon.frame_count[3] >= 3);
+        
+        drv.send_simple_frame(0, MAC0, MAC1);
+        
+        wait (mon.frame_count[1] >= 1);
+        
+        sb.report("TC1");
+
+    endtask
+
+
+    ////////////////////////////// DEBUGGING /////////////////////////////////////////////
     // Debug TX
     always @(posedge clk) begin
         if (vif.tx_ctrl != 0) begin

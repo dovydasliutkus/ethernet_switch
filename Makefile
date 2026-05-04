@@ -87,8 +87,6 @@ TOP = switch_top_tb
 
 ############################# TARGETS ################################
 
-regr: compile
-
 # Test for TOP
 all: compile
 
