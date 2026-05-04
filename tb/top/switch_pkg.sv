@@ -25,22 +25,26 @@ class frame;
                 $time, src_mac, dst_mac, src_port);
     endfunction
 
-    // CRC32 -- tried to match crc calculator, still not working
+    // CRC32 
     function automatic bit [31:0] eth_crc32(byte data[$]);
 
         bit [31:0] crc = 32'hFFFFFFFF;
         bit fb;
 
         foreach (data[i]) begin
+            byte d = data[i];
+
+            // uses https://github.com/amal-araweelo/34349_fpga_comm_exercises/blob/main/ex1_ethernet_fcs/tb/src/fcs_pkg.sv
             for (int b = 7; b >= 0; b--) begin
-                fb = data[i][b] ^ crc[31];
+                fb = d[b] ^ crc[31];
                 crc = {crc[30:0], 1'b0};
                 if (fb)
                     crc ^= 32'h04C11DB7;
             end
         end
 
-        return crc;
+        return ~crc;
+
     endfunction
 
     // Build Ethernet-like frame: [DST][SRC][TYPE][PAYLOAD][FCS]
@@ -118,9 +122,12 @@ class frame;
             8'h06,8'h07,8'h08,8'h09,8'h0A,8'h0B,
             8'h0C,8'h0D,8'h0E,8'h0F,8'h10,8'h11
         };
-
+        
         bit [31:0] crc;
-
+        $write("BYTE STREAM: ");
+        foreach (pkt[i])
+            $write("%02x ", pkt[i]);
+        $display("");
         crc = eth_crc32(pkt);
 
         $display("EXPECTED CRC = E6C53DB2");
