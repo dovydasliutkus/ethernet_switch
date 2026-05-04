@@ -46,13 +46,17 @@ module crc_calculator(
 
     // FIFO signals
     logic length_wen, status_wen, dstmac_wen, srcmac_wen;
+
+    // Signals for monitoring with SignalTap - use keep so they are not optimized away
+    (* keep *) logic length_fifo_full, status_fifo_full, dstmac_fifo_full, srcmac_fifo_full;
+
     packet_length_fifo u_length_fifo (
         .clock  (clk            ),
         .data   (counter        ),  // write: current byte count at end of frame
         .wrreq  (length_wen     ),  // write enable: pulsed once per frame
         .rdreq  (i_length_ren   ),  // read enable: driven by Output Control
         .empty  (o_length_empty ),  // empty flag: for Output Control to know when it has something to read
-        .full   (),
+        .full   (length_fifo_full),
         .q      (o_packet_length)
     );
 
@@ -61,29 +65,29 @@ module crc_calculator(
         .data   (crc_valid      ),  // write: 1=CRC ok, 0=bad frame
         .wrreq  (status_wen     ),  // write enable: pulsed once per frame
         .rdreq  (i_status_ren   ),  // read enable: driven by downstream consumer
-        .empty  (o_status_empty ), 
-        .full   (),  
+        .empty  (o_status_empty ),
+        .full   (status_fifo_full),
         .q      (o_valid        )
     );
 
     dst_mac_fifo u_dst_mac_fifo (
-	.clock  ( clk ),
-	.data   ( dst_mac_int ),
-	.rdreq  ( i_dstmac_ren ),
-	.wrreq  ( dstmac_wen ),
-	.empty  ( o_dstmac_empty ),
-	.full   (),
-	.q      ( dst_mac )
+	    .clock  (clk ),
+	    .data   (dst_mac_int ),
+	    .rdreq  (i_dstmac_ren ),
+	    .wrreq  (dstmac_wen ),
+	    .empty  (o_dstmac_empty ),
+	    .full   (dstmac_fifo_full),
+	    .q      (dst_mac )
 	);
 
     src_mac_fifo u_src_mac_fifo (
-	.clock  ( clk ),
-	.data   ( src_mac_int ),
-	.rdreq  ( i_srcmac_ren ),
-	.wrreq  ( srcmac_wen ),
-	.empty  ( o_srcmac_empty ),
-	.full   (),
-	.q      ( src_mac )
+	    .clock  (clk ),
+	    .data   (src_mac_int ),
+	    .rdreq  (i_srcmac_ren ),
+	    .wrreq  (srcmac_wen ),
+	    .empty  (o_srcmac_empty ),
+	    .full   (srcmac_fifo_full),
+	    .q      (src_mac )
 	);
 
     always_ff @(posedge clk) begin

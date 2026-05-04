@@ -7,11 +7,9 @@ VLOG_OPT = -timescale=1ns/1ps -svinputport=net
 WORK = work
 LOG_DIR = logs
 
-# Altera library path for newest version of Quartus
-ALTERA_LIB = C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v
-
-# Altera library path for older version of Quartus
-# ALTERA_LIB = E:\Tools\intelFPGA_lite\20.1\quartus\eda\sim_lib/altera_mf.v
+# Auto-detect Altera library path based on what exists on this machine
+ALTERA_LIB = $(or $(wildcard C:/altera_lite/25.1std/quartus/eda/sim_lib/altera_mf.v),\
+                  $(wildcard E:/Tools/intelFPGA_lite/20.1/quartus/eda/sim_lib/altera_mf.v))
 
 
 RTL = rtl
