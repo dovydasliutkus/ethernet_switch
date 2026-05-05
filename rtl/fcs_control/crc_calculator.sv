@@ -28,8 +28,9 @@ module crc_calculator(
     output  logic        o_srcmac_empty
     );
 
-    typedef enum logic [1:0] {
-        IDLE,       // Starts shifting data when i_rx_ctrl goes high
+    typedef enum logic [2:0] {
+        IDLE,       // Waits for i_rx_ctrl to go high
+        PREAMBLE,   // Skips 8 preamble/SFD bytes before CRC starts
         DST_MAC,    // Collects 6 bytes
         SRC_MAC,    // Collects 6 bytes
         PAYLOAD    // Payload repeats for the length determined in PL_LENGTH
@@ -52,7 +53,7 @@ module crc_calculator(
 
     packet_length_fifo u_length_fifo (
         .clock  (clk            ),
-        .data   (counter        ),  // write: current byte count at end of frame
+        .data   (counter + 11'd8),  // write: byte count including 8-byte preamble/SFD
         .wrreq  (length_wen     ),  // write enable: pulsed once per frame
         .rdreq  (i_length_ren   ),  // read enable: driven by Output Control
         .empty  (o_length_empty ),  // empty flag: for Output Control to know when it has something to read
@@ -126,11 +127,27 @@ module crc_calculator(
         // --------------------------------------------------------
         IDLE: begin
             if (i_rx_ctrl) begin
-                byte_in        = ~i_data;   // byte 0: inverted (first of the 4 CRC-preconditioned bytes)
-                dst_mac_int_n[7:0] = i_data;   // counter will be 1 after this cycle
-                calc_en        = 1'b1;
-                counter_n      = 11'd1;     // byte 0 consumed this cycle
-                state_n        = DST_MAC;
+                counter_n = 11'd1;
+                state_n   = PREAMBLE;
+            end
+        end
+
+        // --------------------------------------------------------
+        // Skip 8 preamble/SFD bytes (indices 0-7); on byte index 8 start CRC.
+        PREAMBLE: begin
+            if (i_rx_ctrl) begin
+                if (counter == 11'd8) begin
+                    byte_in            = ~i_data;   // CRC pre-conditioning (init = 0xFFFFFFFF)
+                    dst_mac_int_n[7:0] = i_data;
+                    calc_en            = 1'b1;
+                    counter_n          = 11'd1;
+                    state_n            = DST_MAC;
+                end else begin
+                    counter_n = counter + 1;
+                end
+            end else begin
+                state_n   = IDLE;
+                counter_n = '0;
             end
         end
 
@@ -178,7 +195,6 @@ module crc_calculator(
                 counter_n = counter + 1;
             end else begin
                  $display("[%0t] CRC REM = %08x", $time, rem_reg);
-                // crc_valid  = (rem_reg == 32'h0000_0000);
                 crc_valid  = (rem_reg == 32'hFFFF_FFFF);
                 // crc_valid = 1'b1;// amal debug
                 length_wen = 1'b1;  // push byte count into length FIFO

@@ -45,7 +45,11 @@ module fcs_control(
                 .clk             ( i_clk                ),
                 .reset           ( i_reset              ),
                 .i_rx_ctrl       ( i_rx_ctrl[i] && !w_datafifo_full[i]), // Only write if data_fifo isn't full
-                .i_data          ( i_rx_data[i*8 +: 8]  ), // Crc[0] gets [7:0], crc[1] gets [15:8], etc.
+                // .i_data          ( i_rx_data[i*8 +: 8]  ), // Crc[0] gets [7:0], crc[1] gets [15:8], etc.
+                .i_data ( {i_rx_data[i*8],   i_rx_data[i*8+1],
+                           i_rx_data[i*8+2], i_rx_data[i*8+3],
+                           i_rx_data[i*8+4], i_rx_data[i*8+5],
+                           i_rx_data[i*8+6], i_rx_data[i*8+7]} ), // Crc[0] gets [0:7], crc[1] gets [8:15] - LSB first
                 .src_mac         ( w_src_mac[i]         ),
                 .dst_mac         ( w_dst_mac[i]         ),
                 .o_packet_length ( w_packet_length[i]   ),

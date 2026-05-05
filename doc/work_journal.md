@@ -43,6 +43,30 @@
 - Fixed reset to be active-low in all modules (currently mixed sync and async)
 - Got direct connected example to work on DE-4 FPGA. Needed to set Ethernet IP to static. And enable a rule in the Windows firewall.
 
+## Setup for PING
+
+1. Set a static IP. See picture below.
+
+
 ![Set IP to static](../figures/set_static_eth_IP.png)
+
+2. Enable the following `Inbound Rules` in the `Windows Defender Firewall`
+
 ![Firewall rule to enable ping](../figures/firewall_rule_for_ping.png)
 
+3. Set a MAC address to a static IP (so the computer knows what dst_mac to use when pinging)
+
+Daniel's IP below
+```
+arp -s 192.168.1.3 00-E0-4C-68-00-93
+```
+
+Get the IP by using
+```
+ipconfig /all
+```
+MAKE sure it's the MAC address from Ethernet and not virtual Ethernet or WSL Ethernet
+To lists IPs and correspondig MACs
+```
+arp -a 
+```

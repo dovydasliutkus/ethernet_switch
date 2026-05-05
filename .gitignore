@@ -28,6 +28,7 @@ modelsim.ini
 # Ignore fpga template from learn for now
 fpga/template/*
 !fpga/template/README.md
+!fpga/template/test3.qsf
 
 # Dovydas's files
 doc/8023-2022.pdf
