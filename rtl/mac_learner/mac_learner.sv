@@ -125,7 +125,7 @@ module mac_learner (
 
                     // B) Learning & LRU Update
                     // Learn only Unicast MACs (I/G bit == 0)
-                    if (src_mac_reg[40] == 1'b0) begin
+                    if (src_mac_reg[0] == 1'b0) begin
                         
                         // Case 1: Hit in Way 1
                         if (src_v1 && (src_m1 == src_mac_reg)) begin
