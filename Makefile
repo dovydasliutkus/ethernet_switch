@@ -2,7 +2,7 @@ VLIB = vlib
 VLOG = vlog
 VSIM = vsim
 
-VLOG_OPT = -timescale=1ns/1ps -svinputport=net
+VLOG_OPT = -timescale=1ns/1ps -svinputport=net +acc
 
 WORK = work
 LOG_DIR = logs
@@ -110,7 +110,7 @@ crc_compile:
 	$(VLOG) $(VLOG_OPT) $(CRC_SV_FILES) $(CRC_TB_FILES)
 
 crc_sim: crc_compile
-	$(VSIM) $(CRC_TOP)
+	$(VSIM) $(CRC_TOP) -do "do wave_crc.do; run -all"
 
 crc_batch: crc_compile
 	$(VSIM) -c $(CRC_TOP) -do "run -all; quit"

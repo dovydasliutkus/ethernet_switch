@@ -127,7 +127,7 @@ module crc_calculator(
         IDLE: begin
             if (i_rx_ctrl) begin
                 byte_in        = ~i_data;   // byte 0: inverted (first of the 4 CRC-preconditioned bytes)
-                dst_mac_int_n[7:0] = byte_in;   // counter will be 1 after this cycle
+                dst_mac_int_n[7:0] = i_data;   // counter will be 1 after this cycle
                 calc_en        = 1'b1;
                 counter_n      = 11'd1;     // byte 0 consumed this cycle
                 state_n        = DST_MAC;
@@ -141,7 +141,7 @@ module crc_calculator(
 
             if (counter < 6) begin
                 byte_in  = (counter < 4) ? ~i_data : i_data;  // bytes 1-3 inverted, 4-5 as-is
-                dst_mac_int_n[counter*8 +: 8] = byte_in;  // counter=1→[15:8], 2→[23:16] ... 5→[47:40]
+                dst_mac_int_n[counter*8 +: 8] = i_data;  // counter=1→[15:8], 2→[23:16] ... 5→[47:40]
             end else begin
                 // Write dst_mac to the FIFO
                 dstmac_wen = 1'b1;
@@ -178,8 +178,8 @@ module crc_calculator(
                 counter_n = counter + 1;
             end else begin
                  $display("[%0t] CRC REM = %08x", $time, rem_reg);
-                // crc_valid  = (rem_reg == 32'hFFFF_FFFF);
-                crc_valid = (rem_reg == 32'h0000_0000);
+                // crc_valid  = (rem_reg == 32'h0000_0000);
+                crc_valid  = (rem_reg == 32'hFFFF_FFFF);
                 // crc_valid = 1'b1;// amal debug
                 length_wen = 1'b1;  // push byte count into length FIFO
                 status_wen = 1'b1;  // push CRC result into status FIFO
