@@ -98,6 +98,10 @@ module switch_top_tb;
         // 4) Wait until the monitor sees the frame on port 1.
         wait (mon.frame_count[1] >= 1);
 
+        for (int i = 0; i< 20;i++) begin
+            drv.send_simple_frame(0, MAC0, MAC1); 
+            wait (mon.frame_count[1] >= i + 2);
+        end
         // 5) Report the test case result to the scoreboard.
         sb.report("TC1");
 
@@ -105,17 +109,249 @@ module switch_top_tb;
 
 
     ////////////////////////////// DEBUGGING /////////////////////////////////////////////
-    // Debug TX
-    always @(posedge clk) begin
-        if (vif.tx_ctrl != 0) begin
-            $display("[%0t] TX: ctrl=%b data=%h",
-                     $time, vif.tx_ctrl, vif.tx_data);
-        end
+    // // Debug TX
+    // always @(posedge clk) begin
+    //     if (vif.tx_ctrl != 0) begin
+    //         $display("[%0t] TX: ctrl=%b data=%h",
+    //                  $time, vif.tx_ctrl, vif.tx_data);
+    //     end
+    // end
+
+    // //  Debug RX
+    // always @(posedge clk) begin
+    //     if (vif.rx_ctrl != 0)
+    //         $display("[%0t] RX ACTIVE: %b data=%h", $time, vif.rx_ctrl, vif.rx_data);
+    // end
+
+//////////////////////////////////////////////////////
+// FIFO FULL ASSERTIONS
+//////////////////////////////////////////////////////
+
+// Data FIFO full should NEVER assert
+always @(posedge clk) begin
+
+    if (dut.u_fcs_control.w_datafifo_full != 4'b0000) begin
+        $error("[%0t] ERROR: w_datafifo_full asserted = %b",
+               $time,
+               dut.u_fcs_control.w_datafifo_full);
     end
 
-    //  Debug RX
-    always @(posedge clk) begin
-        if (vif.rx_ctrl != 0)
-            $display("[%0t] RX ACTIVE: %b data=%h", $time, vif.rx_ctrl, vif.rx_data);
+end
+
+
+// Per-port CRC calculator FIFO checks
+generate
+    for (genvar p = 0; p < PORTS; p++) begin : fifo_asserts
+
+        always @(posedge clk) begin
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.length_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d length_fifo_full asserted",
+                       $time, p);
+            end
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.status_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d status_fifo_full asserted",
+                       $time, p);
+            end
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.dstmac_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d dstmac_fifo_full asserted",
+                       $time, p);
+            end
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.srcmac_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d srcmac_fifo_full asserted",
+                       $time, p);
+            end
+
+        end
+
     end
+endgenerate
+
+//////////////////////////////////////////////////////
+// FIFO / BUFFER ASSERTIONS
+//////////////////////////////////////////////////////
+
+// --------------------------------------------------
+// FCS CONTROL FIFO ASSERTIONS
+// These FIFOs should NEVER become full
+// --------------------------------------------------
+
+always @(posedge clk) begin
+
+    if (dut.u_fcs_control.w_datafifo_full != 4'b0000) begin
+        $error("[%0t] ERROR: w_datafifo_full asserted = %b",
+               $time,
+               dut.u_fcs_control.w_datafifo_full);
+    end
+
+end
+
+
+generate
+    for (genvar p = 0; p < PORTS; p++) begin : g_fcs_fifo_asserts
+
+        always @(posedge clk) begin
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.length_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d length_fifo_full asserted",
+                       $time, p);
+            end
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.status_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d status_fifo_full asserted",
+                       $time, p);
+            end
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.dstmac_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d dstmac_fifo_full asserted",
+                       $time, p);
+            end
+
+            if (dut.u_fcs_control.gen_crc[p]
+                    .u_crc_calculator.srcmac_fifo_full) begin
+
+                $error("[%0t] ERROR: PORT %0d srcmac_fifo_full asserted",
+                       $time, p);
+            end
+
+        end
+
+    end
+endgenerate
+
+
+// --------------------------------------------------
+// VOQ BUFFER ASSERTIONS
+// --------------------------------------------------
+
+generate
+    for (genvar i = 0; i < PORTS; i++) begin : g_voq_row
+
+        for (genvar j = 0; j < PORTS; j++) begin : g_voq_col
+
+            always @(posedge clk) begin
+
+                // --------------------------------------
+                // FIFO FULL
+                // --------------------------------------
+
+                if (dut.u_crossbar_top
+                        .u_voq_buffer_cixb2
+                        .fifo_full[i][j]) begin
+
+                    $error("[%0t] ERROR: VOQ FIFO FULL row=%0d col=%0d",
+                           $time, i, j);
+
+                end
+
+
+                // --------------------------------------
+                // WRITE WHILE FULL
+                // --------------------------------------
+
+                if (dut.u_crossbar_top
+                        .u_voq_buffer_cixb2
+                        .fifo_wen[i][j]
+
+                    &&
+
+                    dut.u_crossbar_top
+                        .u_voq_buffer_cixb2
+                        .fifo_full[i][j]) begin
+
+                    $error("[%0t] ERROR: WRITE TO FULL FIFO row=%0d col=%0d",
+                           $time, i, j);
+
+                end
+
+
+                // --------------------------------------
+                // READ WHILE EMPTY
+                // --------------------------------------
+
+                if (dut.u_crossbar_top
+                        .u_voq_buffer_cixb2
+                        .fifo_ren[i][j]
+
+                    &&
+
+                    dut.u_crossbar_top
+                        .u_voq_buffer_cixb2
+                        .fifo_empty[i][j]) begin
+
+                    $error("[%0t] ERROR: READ FROM EMPTY FIFO row=%0d col=%0d",
+                           $time, i, j);
+
+                end
+
+
+                // --------------------------------------
+                // HIGH OCCUPANCY WARNING
+                // --------------------------------------
+
+                if (dut.u_crossbar_top
+                        .u_voq_buffer_cixb2
+                        .fifo_usedw[i][j] > (4096 - 32)) begin
+
+                    $warning("[%0t] WARNING: FIFO NEAR FULL row=%0d col=%0d used=%0d",
+                             $time,
+                             i,
+                             j,
+                             dut.u_crossbar_top
+                                 .u_voq_buffer_cixb2
+                                 .fifo_usedw[i][j]);
+
+                end
+
+            end
+
+        end
+
+    end
+endgenerate
+
+
+// --------------------------------------------------
+// DRR SHADOW LENGTH FIFO ASSERTIONS
+// These should NEVER become full
+// --------------------------------------------------
+
+generate
+    for (genvar s = 0; s < PORTS; s++) begin : g_sched_asserts
+
+        always @(posedge clk) begin
+
+            if (dut.u_crossbar_top.gen_sched[s]
+                    .u_drr_scheduler.len_full != 4'b0000) begin
+
+                $error("[%0t] ERROR: Scheduler %0d len_full=%b",
+                       $time,
+                       s,
+                       dut.u_crossbar_top.gen_sched[s]
+                           .u_drr_scheduler.len_full);
+
+            end
+
+        end
+
+    end
+endgenerate
+
 endmodule

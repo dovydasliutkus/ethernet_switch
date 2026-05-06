@@ -44,7 +44,7 @@ class frame;
 
     // build Ethernet frame: [PREAMBLE(7)][SFD(1)][DST(6)][SRC(6)][TYPE(2)][PAYLOAD][FCS(4)]
     // FCS = standard CRC32 over [DST][SRC][TYPE][PAYLOAD], appended little-endian (LSB first).
-    function void build(int payload_len = 46);
+    function void build(int payload_len = 1500);
 
         byte frame_data[$];
         bit [31:0] fcs;
