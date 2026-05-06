@@ -76,6 +76,8 @@ module switch_top_tb;
     end
 
     /////////////// TEST CASES ////////////////////////
+
+    
     task automatic tc1();
        
         drv.send_simple_frame(1, MAC1, MAC0);
@@ -87,7 +89,6 @@ module switch_top_tb;
         wait (mon.frame_count[1] >= 1);
         
         sb.report("TC1");
-
     endtask
 
 

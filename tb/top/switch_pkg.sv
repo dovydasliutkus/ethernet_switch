@@ -226,7 +226,8 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
         end
 
         vif.cb.rx_ctrl[port] <= 0;
-        @(vif.cb);
+        // Wait for IFG
+        repeat (12) @(vif.cb);
 
     endtask
 
