@@ -77,18 +77,30 @@ module switch_top_tb;
 
     /////////////// TEST CASES ////////////////////////
 
-    
+
     task automatic tc1();
-       
+
+        // TC1: Basic forwarding/learning scenario
+        // 1) Inject a frame into port 1 (src=MAC1, dst=MAC0).
+        //    The switch should forward (or flood) this frame to the other ports
+        //    while learning the source MAC on port 1.
         drv.send_simple_frame(1, MAC1, MAC0);
-        
+
+        // 2) Wait until the monitor has observed the forwarded frames
+        //    on ports 0, 2 and 3 (3 frames total).
         wait (mon.frame_count[0] + mon.frame_count[2] + mon.frame_count[3] >= 3);
-        
+
+        // 3) Send a frame from port 0 (src=MAC0, dst=MAC1).
+        //    Since MAC1 was learned on port 1, the frame should be
+        //    delivered to port 1 only.
         drv.send_simple_frame(0, MAC0, MAC1);
-        
+
+        // 4) Wait until the monitor sees the frame on port 1.
         wait (mon.frame_count[1] >= 1);
-        
+
+        // 5) Report the test case result to the scoreboard.
         sb.report("TC1");
+
     endtask
 
 
