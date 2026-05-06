@@ -47,6 +47,7 @@ module voq_buffer_cixb2 #(
                     .data (fifo_wdata[i][j]),
                     .wrreq (fifo_wen[i][j]),
                     .rdreq (fifo_ren[i][j]),
+                    .sclr (~i_rst),
 
                     .q (fifo_rdata[i][j]),
                     .full (fifo_full[i][j]),

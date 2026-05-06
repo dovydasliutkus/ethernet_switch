@@ -47,12 +47,13 @@ module drr_scheduler #(
             pkt_len_fifo u_len_fifo (
                 .clock  (i_clk),
                 .data   (i_pkt_len[g]),
-                .rdreq  (len_rd_en[g]),     // pop:  only when DRR commits to transmit
+                .rdreq  (len_rd_en[g]),
                 .wrreq  (len_wr_en[g]),
+                .sclr   (~i_reset),
                 .empty  (len_empty[g]),
                 .full   (len_full[g]),
-                .q      (len_head[g]),      // show-ahead
-                .usedw  ()                  // unused, leave open
+                .q      (len_head[g]),
+                .usedw  ()
             );
         end
     endgenerate

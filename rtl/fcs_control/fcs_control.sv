@@ -70,9 +70,10 @@ module fcs_control(
         for (i = 0; i < 4; i++) begin : gen_data_fifo
             data_fifo data_fifo_inst (
                 .clock  ( i_clk                              ),
-                .data   ( i_rx_data[i*8 +: 8]                ),
-                .wrreq  ( i_rx_ctrl[i] && !w_datafifo_full[i]), // Only write if fifo isn't full
+                .data   ( i_rx_data[i*8 +: 8]               ),
+                .wrreq  ( i_rx_ctrl[i] && !w_datafifo_full[i]),
                 .rdreq  ( w_datafifo_ren[i]                  ),
+                .sclr   ( ~i_reset                           ),
                 .full   ( w_datafifo_full[i]                 ),
                 .empty  (                                    ),
                 .q      ( o_data[i]                          )

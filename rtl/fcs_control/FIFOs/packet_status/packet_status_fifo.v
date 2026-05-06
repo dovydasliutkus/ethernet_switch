@@ -42,6 +42,7 @@ module packet_status_fifo (
 	data,
 	rdreq,
 	wrreq,
+	sclr,
 	empty,
 	full,
 	q);
@@ -50,6 +51,7 @@ module packet_status_fifo (
 	input	[0:0]  data;
 	input	  rdreq;
 	input	  wrreq;
+	input	  sclr;
 	output	  empty;
 	output	  full;
 	output	[0:0]  q;
@@ -73,7 +75,7 @@ module packet_status_fifo (
 				.almost_empty (),
 				.almost_full (),
 				.eccstatus (),
-				.sclr (),
+				.sclr (sclr),
 				.usedw ());
 	defparam
 		scfifo_component.add_ram_output_register = "OFF",

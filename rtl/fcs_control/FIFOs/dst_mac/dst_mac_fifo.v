@@ -42,6 +42,7 @@ module dst_mac_fifo (
 	data,
 	rdreq,
 	wrreq,
+	sclr,
 	empty,
 	full,
 	q);
@@ -50,6 +51,7 @@ module dst_mac_fifo (
 	input	[47:0]  data;
 	input	  rdreq;
 	input	  wrreq;
+	input	  sclr;
 	output	  empty;
 	output	  full;
 	output	[47:0]  q;
@@ -73,7 +75,7 @@ module dst_mac_fifo (
 				.almost_empty (),
 				.almost_full (),
 				.eccstatus (),
-				.sclr (),
+				.sclr (sclr),
 				.usedw ());
 	defparam
 		scfifo_component.add_ram_output_register = "OFF",

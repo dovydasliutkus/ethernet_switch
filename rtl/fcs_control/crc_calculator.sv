@@ -53,19 +53,21 @@ module crc_calculator(
 
     packet_length_fifo u_length_fifo (
         .clock  (clk            ),
-        .data   (counter + 11'd8),  // write: byte count including 8-byte preamble/SFD
-        .wrreq  (length_wen     ),  // write enable: pulsed once per frame
-        .rdreq  (i_length_ren   ),  // read enable: driven by Output Control
-        .empty  (o_length_empty ),  // empty flag: for Output Control to know when it has something to read
+        .data   (counter + 11'd8),
+        .wrreq  (length_wen     ),
+        .rdreq  (i_length_ren   ),
+        .sclr   (~reset         ),
+        .empty  (o_length_empty ),
         .full   (length_fifo_full),
         .q      (o_packet_length)
     );
 
     packet_status_fifo u_status_fifo (
         .clock  (clk            ),
-        .data   (crc_valid      ),  // write: 1=CRC ok, 0=bad frame
-        .wrreq  (status_wen     ),  // write enable: pulsed once per frame
-        .rdreq  (i_status_ren   ),  // read enable: driven by downstream consumer
+        .data   (crc_valid      ),
+        .wrreq  (status_wen     ),
+        .rdreq  (i_status_ren   ),
+        .sclr   (~reset         ),
         .empty  (o_status_empty ),
         .full   (status_fifo_full),
         .q      (o_valid        )
@@ -76,6 +78,7 @@ module crc_calculator(
 	    .data   (dst_mac_int ),
 	    .rdreq  (i_dstmac_ren ),
 	    .wrreq  (dstmac_wen ),
+	    .sclr   (~reset ),
 	    .empty  (o_dstmac_empty ),
 	    .full   (dstmac_fifo_full),
 	    .q      (dst_mac )
@@ -86,6 +89,7 @@ module crc_calculator(
 	    .data   (src_mac_int ),
 	    .rdreq  (i_srcmac_ren ),
 	    .wrreq  (srcmac_wen ),
+	    .sclr   (~reset ),
 	    .empty  (o_srcmac_empty ),
 	    .full   (srcmac_fifo_full),
 	    .q      (src_mac )

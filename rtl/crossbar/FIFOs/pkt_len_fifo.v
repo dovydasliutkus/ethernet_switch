@@ -42,6 +42,7 @@ module pkt_len_fifo (
 	data,
 	rdreq,
 	wrreq,
+	sclr,
 	empty,
 	full,
 	q,
@@ -51,6 +52,7 @@ module pkt_len_fifo (
 	input	[10:0]  data;
 	input	  rdreq;
 	input	  wrreq;
+	input	  sclr;
 	output	  empty;
 	output	  full;
 	output	[10:0]  q;
@@ -78,7 +80,7 @@ module pkt_len_fifo (
 				.almost_empty (),
 				.almost_full (),
 				.eccstatus (),
-				.sclr ());
+				.sclr (sclr));
 	defparam
 		scfifo_component.add_ram_output_register = "ON",
 		scfifo_component.intended_device_family = "MAX 10",

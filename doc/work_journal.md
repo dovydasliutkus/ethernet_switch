@@ -66,6 +66,14 @@ Daniel's IP below
 ```
 arp -s 192.168.1.3 00-E0-4C-68-00-93
 ```
+Amal's IP
+```
+arp -s 192.168.1.3 C8-09-A8-09-19-9B
+```
+My IP
+```
+arp -s 192.168.1.2 AC-1A-3D-B0-2D-FF
+```
 
 Get the IP by using
 ```
