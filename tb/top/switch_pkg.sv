@@ -25,60 +25,28 @@ class frame;
                 $time, src_mac, dst_mac, src_port);
     endfunction
 
-    // CORRECT CRC32 CALCULATOR 
-    // function automatic bit [31:0] eth_crc32(byte data[$]);
-
-    //     bit [31:0] crc = 32'hFFFFFFFF;
-    //     bit fb;
-
-    //     foreach (data[i]) begin
-    //         byte d = data[i];
-
-    //         // uses https://github.com/amal-araweelo/34349_fpga_comm_exercises/blob/main/ex1_ethernet_fcs/tb/src/fcs_pkg.sv
-    //         for (int b = 7; b >= 0; b--) begin
-    //             fb = d[b] ^ crc[31];
-    //             crc = {crc[30:0], 1'b0};
-    //             if (fb)
-    //                 crc ^= 32'h04C11DB7;
-    //         end
-    //     end
-
-    //     return ~crc;
-
-    // endfunction
-
-    // MATCHES DUT CRC CALCULATOR
+    // Standard Ethernet CRC32: poly=0x04C11DB7, init=0xFFFFFFFF, RefIn=true,
+    // RefOut=true, XorOut=0xFFFFFFFF. Reflected polynomial 0xEDB88320 handles
+    // RefIn/RefOut implicitly. Verified: FCS of the ping packet = 0xD059FF9B.
     function automatic bit [31:0] eth_crc32(byte data[$]);
-
-        bit [31:0] crc = 32'h00000000;
-        $write("DEBUGGGG");
+        bit [31:0] crc = 32'hFFFFFFFF;
         foreach (data[i]) begin
             bit [7:0] d = data[i];
-            d = {d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]};
-            $write("%02x ", d);
             for (int b = 0; b < 8; b++) begin
-                bit fb = crc[31] ^ d[7];
-                crc = {crc[30:0], 1'b0};
-                if (fb)
-                    crc ^= 32'h04C11DB7;
-                d = {d[6:0],1'b0};
+                bit fb = crc[0] ^ d[0];
+                crc = {1'b0, crc[31:1]};
+                if (fb) crc ^= 32'hEDB88320;
+                d = {1'b0, d[7:1]};
             end
         end
-
-        return crc;
+        return ~crc;
     endfunction
 
     // build Ethernet frame: [PREAMBLE(7)][SFD(1)][DST(6)][SRC(6)][TYPE(2)][PAYLOAD][FCS(4)]
-    //
-    // CRC is computed only over [DST][SRC][TYPE][PAYLOAD] (preamble excluded), matching
-    // what the DUT does in crc_calculator.sv:
-    //   1. First 4 bytes of frame data (DST_MAC[0..3]) are inverted → simulates init=0xFFFFFFFF
-    //   2. CRC output is inverted (XorOut=0xFFFFFFFF) → DUT residue check passes (rem_reg==0xFFFFFFFF)
-    //   3. FCS appended big-endian (MSB first)
+    // FCS = standard CRC32 over [DST][SRC][TYPE][PAYLOAD], appended little-endian (LSB first).
     function void build(int payload_len = 46);
 
-        byte frame_data[$];  // DST + SRC + Type + Payload (no preamble)
-        byte crc_in[$];      // frame_data with DST_MAC[0..3] inverted
+        byte frame_data[$];
         bit [31:0] fcs;
 
         $display("[%0t] FRAME: building packet...", $time);
@@ -89,7 +57,7 @@ class frame;
         for (int i = 0; i < 7; i++)
             data.push_back(8'hAA);
 
-        // SFD: 0xAB (standard start-of-frame delimiter)
+        // SFD: 0xAB
         data.push_back(8'hAB);
 
         // DST MAC (big-endian)
@@ -100,7 +68,7 @@ class frame;
         for (int i = 5; i >= 0; i--)
             frame_data.push_back(src_mac >> (i*8));
 
-        // EtherType (dummy IPv4)
+        // EtherType
         frame_data.push_back(8'h08);
         frame_data.push_back(8'h00);
 
@@ -108,27 +76,18 @@ class frame;
         for (int i = 0; i < payload_len; i++)
             frame_data.push_back(i);
 
-        // Build CRC input: invert first 4 bytes (DST_MAC[0..3]) to simulate init=0xFFFFFFFF
-        foreach (frame_data[i]) begin
-            byte b = frame_data[i];
-            if (i < 4) b = ~b;
-            crc_in.push_back(b);
-        end
-
-        // Generate fcs and invert as per ethernet standard
-        fcs = eth_crc32(crc_in);
+        fcs = eth_crc32(frame_data);
 
         $display("  FCS = %08x", fcs);
 
-        // Append frame data then FCS (big-endian, MSB first)
         foreach (frame_data[i])
             data.push_back(frame_data[i]);
 
-        for (int i = 3; i >= 0; i--)
+        // FCS appended little-endian (LSB first), matching standard Ethernet
+        for (int i = 0; i < 4; i++)
             data.push_back(fcs >> (i*8));
 
         $display("[%0t] FRAME: build complete, size=%0d", $time, data.size());
-
         $write("[%0t] FRAME FULL PACKET (%0d bytes): ", $time, data.size());
         foreach (data[i])
             $write("%02x ", data[i]);
