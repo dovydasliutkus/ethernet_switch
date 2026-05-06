@@ -43,6 +43,12 @@
 - Fixed reset to be active-low in all modules (currently mixed sync and async)
 - Got direct connected example to work on DE-4 FPGA. Needed to set Ethernet IP to static. And enable a rule in the Windows firewall.
 
+## 2026-05-06
+### Did
+1. Setup ping to work between two directly connected computers (see [Setup for PING](#setup-for-ping)).
+2. Found that the Ethernet PHY gives the packet including the preamble and start-of-frame delimiter. Added a fix in `crc_calculator.sv` to ignore the first 8 bytes for crc calculation, but include them in `packet_length` as they are still stored in the `data_fifo`. 🔵 PUT IN REPORT: Could exclude preamble+start-of-frame delimeter out of the `data_fifo` and then put it back on before transmitting. This is a minor optimization.
+3. Ethernet uses `CRC32` (input and output bit-reflected), while our `crc_calculator` implements `CRC32_BZIP2` (no reflection). To compensate, we feed data into the calculator with bit order reversed. This also means dst and src MAC addresses for the MAC learner arrive with reversed bit order. Ordering in the `data_fifo` is unchanged. 🔴 TODO: Make sure the broadcast bit is taken from the right place.
+
 ## Setup for PING
 
 1. Set a static IP. See picture below.
