@@ -72,10 +72,23 @@ class frame;
 
         byte proc[$];
         bit [31:0] fcs;
+        byte d;
 
         $display("[%0t] FRAME: building packet...", $time);
 
         data.delete();
+
+        // PREAMBLE
+        for (int i = 0; i < 7; i++) begin
+            d = $urandom_range(0, 255);
+            data.push_back(d);
+            $display("  PREAMBLE byte[%0d] = %02x", i, d);
+        end
+
+        // DELIMITER
+        d = $urandom_range(0, 255);
+        data.push_back(d);
+        $display("  DELIMITER byte = %02x", d);
 
         // DST MAC
         for (int i = 5; i >= 0; i--) begin
@@ -123,6 +136,15 @@ class frame;
 
         $display("[%0t] FRAME: build complete, size=%0d",
                 $time, data.size());
+
+        $write("[%0t] FRAME FULL PACKET (%0d bytes): ",
+            $time, data.size());
+
+        foreach (data[i]) begin
+            $write("%02x ", data[i]);
+        end
+
+        $display("");
 
     endfunction
 
