@@ -51,11 +51,11 @@ class frame;
     function automatic bit [31:0] eth_crc32(byte data[$]);
 
         bit [31:0] crc = 32'h00000000;
-
+        $write("DEBUGGGG");
         foreach (data[i]) begin
             bit [7:0] d = data[i];
-            // d = {d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]};
-            
+            d = {d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]};
+            $write("%02x ", d);
             for (int b = 0; b < 8; b++) begin
                 bit fb = crc[31] ^ d[7];
                 crc = {crc[30:0], 1'b0};
@@ -116,7 +116,7 @@ class frame;
         end
 
         // Generate fcs and invert as per ethernet standard
-        fcs = ~eth_crc32(crc_in);
+        fcs = eth_crc32(crc_in);
 
         $display("  FCS = %08x", fcs);
 
