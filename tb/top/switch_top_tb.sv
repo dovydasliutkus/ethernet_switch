@@ -15,10 +15,12 @@ module switch_top_tb;
     switch_if vif(clk);
 
     // MACs (FIXED LOCATION)
-    bit [47:0] MAC0 = 48'h0000_0000_0001;
-    bit [47:0] MAC1 = 48'h0000_0000_0002;
-    bit [47:0] MAC2 = 48'h0000_0000_0003;
-    bit [47:0] MAC3 = 48'h0000_0000_0004;
+    bit [47:0] MAC0 = 48'h0000_0000_0000;
+    bit [47:0] MAC1 = 48'h0000_0000_0001;
+    bit [47:0] MAC2 = 48'h0000_0000_0002;
+    bit [47:0] MAC3 = 48'h0000_0000_0003;
+    bit [47:0] macs [4] = '{MAC0, MAC1, MAC2, MAC3};
+
 
 
     // Mailboxes
@@ -51,6 +53,37 @@ module switch_top_tb;
     //     $finish;
     // end
 
+    /////////////// Helper taks ////////////////////////
+    // wrapper for sending dynamically sized frames
+    task automatic send_dynamic_frame(
+        int src, 
+        bit [47:0] src_mac, 
+        bit [47:0] dst_mac, 
+        int len
+    );
+        frame f = new(src_mac, dst_mac, src);
+        f.build(len);
+        drv.send_frame(f);
+    endtask
+
+    // Helper to reset monitor counts between tests
+    task automatic clear_monitor_counts();
+        for(int i=0; i<PORTS; i++) mon.frame_count[i] = 0;
+    endtask
+
+    task automatic send_corrupted_dynamic_frame(
+        int src,
+        bit [47:0] src_mac,
+        bit [47:0] dst_mac,
+        int len
+    );
+        frame f = new(src_mac, dst_mac, src);
+        f.build(len);
+        drv.send_corrupted_frame(f); // skips exp_q and mac_table
+    endtask
+
+    /////////////// Main execution ////////////////////////
+
     initial begin
         // Mailboxes
         for (int i = 0; i < PORTS; i++) begin
@@ -71,7 +104,16 @@ module switch_top_tb;
             sb.run();
         join_none
 
+        // Run the tests
         tc1();
+        tc2();
+        tc3();
+        tc4();
+        tc5();
+        tc6();
+        tc7();
+        tc8();
+        tc9();
         $finish();
     end
 
@@ -84,6 +126,7 @@ module switch_top_tb;
         // 1) Inject a frame into port 1 (src=MAC1, dst=MAC0).
         //    The switch should forward (or flood) this frame to the other ports
         //    while learning the source MAC on port 1.
+        clear_monitor_counts();
         drv.send_simple_frame(1, MAC1, MAC0);
 
         // 2) Wait until the monitor has observed the forwarded frames
@@ -107,6 +150,211 @@ module switch_top_tb;
 
     endtask
 
+    // TC2: Randomized Independent Traffic
+    task automatic tc2();
+        localparam int NUM_FRAMES = 10;
+        int payload_len, src_port, dst_port;
+
+        clear_monitor_counts();
+
+        // Learning phase
+        for (int p = 0; p < PORTS; p++) begin
+            drv.send_simple_frame(p, macs[p], macs[(p+1)%PORTS]);
+        end
+        repeat(200) @(vif.cb);
+        clear_monitor_counts();
+
+        // Randomized traffic with variable payload sizes
+        for (int n = 0; n < NUM_FRAMES * PORTS; n++) begin
+            src_port = $urandom_range(0, PORTS-1);
+            dst_port = (src_port + 1) % PORTS;
+            payload_len = $urandom_range(46, 1500); 
+            send_dynamic_frame(src_port, macs[src_port], macs[dst_port], payload_len);
+        end
+
+        wait (mon.frame_count[0] + mon.frame_count[1] + 
+              mon.frame_count[2] + mon.frame_count[3] >= NUM_FRAMES * PORTS);
+        
+        sb.report("TC2");
+
+    endtask
+
+    // TC3: Multiple inputs, same output
+    task automatic tc3();
+        localparam int NUM_FRAMES = 10;
+        int expected_total = NUM_FRAMES * 3; // 3 ports sending to 1
+
+        clear_monitor_counts();
+
+        // Ports 1, 2, and 3 all send to Port 0
+        for (int p = 1; p < PORTS; p++) begin
+            for (int n = 0; n < NUM_FRAMES; n++) begin
+                send_dynamic_frame(p, macs[p], MAC0, $urandom_range(46, 1500));
+            end
+        end
+
+        wait (mon.frame_count[0] >= expected_total);
+        sb.report("TC3");
+    endtask
+
+    // TC4: Variable packet sizes across independent ports
+    task automatic tc4();
+        int sizes[$] = '{46, 256, 512, 1000, 1500};
+        int total = sizes.size() * PORTS;
+
+        clear_monitor_counts();
+        
+        foreach (sizes[k]) begin
+            for (int p = 0; p < PORTS; p++) begin
+                send_dynamic_frame(p, macs[p], macs[(p+1)%PORTS], sizes[k]);
+            end
+        end
+
+        wait (mon.frame_count[0] + mon.frame_count[1] + 
+              mon.frame_count[2] + mon.frame_count[3] >= total);
+        sb.report("TC4");
+    endtask
+
+    // TC5: Output congestion with MAX size frames
+    task automatic tc5();
+        localparam int NUM_FRAMES = 8;
+        int total = NUM_FRAMES * 3;
+
+        clear_monitor_counts();
+
+        for (int n = 0; n < NUM_FRAMES; n++) begin
+            for (int p = 1; p < PORTS; p++) begin
+                // Blast port 0 with 1500 byte payloads
+                send_dynamic_frame(p, macs[p], MAC0, 1500); 
+            end
+        end
+
+        wait (mon.frame_count[0] >= total);
+        sb.report("TC5");
+
+    endtask
+
+    // TC6: Equal packet sizes to stress round-robin
+    task automatic tc6();
+        localparam int NUM_FRAMES = 10;
+        int total = NUM_FRAMES * PORTS;
+
+        clear_monitor_counts();
+
+        for (int n = 0; n < NUM_FRAMES; n++) begin
+            for (int p = 0; p < PORTS; p++) begin
+                send_dynamic_frame(p, macs[p], macs[(p+2)%PORTS], 256);
+            end
+        end
+
+        wait (mon.frame_count[0] + mon.frame_count[1] + 
+              mon.frame_count[2] + mon.frame_count[3] >= total);
+        sb.report("TC6");
+    endtask
+
+    // TC7: Highly mixed packet sizes
+    task automatic tc7();
+        localparam int NUM_FRAMES = 10;
+        int payload_len, src_port;
+        int total = NUM_FRAMES * PORTS;
+
+        clear_monitor_counts();
+
+        for (int n = 0; n < total; n++) begin
+            src_port = $urandom_range(0, PORTS-1);
+            case ($urandom_range(0, 2))
+                0: payload_len = $urandom_range(46,  500);  // small
+                1: payload_len = $urandom_range(500, 1000);  // medium
+                2: payload_len = $urandom_range(1000, 1500); // large
+            endcase
+            send_dynamic_frame(src_port, macs[src_port], macs[(src_port+1)%PORTS], payload_len);
+        end
+
+        wait (mon.frame_count[0] + mon.frame_count[1] + 
+              mon.frame_count[2] + mon.frame_count[3] >= total);
+        sb.report("TC7");
+    endtask
+
+    // TC8: Starvation / Deficit Accumulation
+    task automatic tc8();
+        localparam int NUM_ROUNDS = 5;
+        int total_expected = 0;
+
+        clear_monitor_counts();
+
+        for (int r = 0; r < NUM_ROUNDS; r++) begin
+            // Port 1 sends ONE large frame to Port 0
+            send_dynamic_frame(1, MAC1, MAC0, 1500);
+            total_expected++;
+
+            // Ports 2 and 3 send MANY small frames to Port 0
+            for (int p = 2; p < PORTS; p++) begin
+                for (int s = 0; s < 5; s++) begin
+                    send_dynamic_frame(p, macs[p], MAC0, 46);
+                    total_expected++;
+                end
+            end
+        end
+
+        wait (mon.frame_count[0] >= total_expected);
+        sb.report("TC8");
+    endtask
+
+    // TC9: Error Injection
+    task automatic tc9();
+        localparam int NUM_VALID   = 15;
+        localparam int NUM_CORRUPT = 10;
+        int src_p;
+        int valid_sent = 0;
+        int corrupt_sent = 0;
+        int total_observed = 0;
+        bit [47:0] UNKNOWN_MAC = 48'hDE_AD_BE_EF_00_01;
+
+
+        clear_monitor_counts();
+
+        for (int i = 0; i < (NUM_VALID + NUM_CORRUPT); i++) begin
+            src_p = $urandom_range(1, 3);
+
+            if (i % 2 == 0 && corrupt_sent < NUM_CORRUPT) begin
+                // Use a brand new MAC for the corrupted frame
+                send_corrupted_dynamic_frame(src_p, UNKNOWN_MAC, MAC0, 64);
+                corrupt_sent++;
+            end else begin
+                send_dynamic_frame(src_p, macs[src_p], MAC0, $urandom_range(64, 500));
+                valid_sent++;
+            end
+        end
+
+        wait(mon.frame_count[0] >= valid_sent);
+        repeat(500) @(vif.cb); 
+
+        // all monitor count should EQUAL exactly valid_sent.
+        foreach (mon.frame_count[p]) total_observed += mon.frame_count[p];
+
+        if (total_observed > valid_sent) begin
+            $error("[TC9] FAIL: Leakage detected! %0d frames appeared that shouldn't exist.", 
+                    total_observed - valid_sent);
+            sb.error_count++;
+        end
+
+        // Send a valid frame to the MAC used in the corrupted packets.
+        // If the switch is smart, it should FLOOD this (count > 1) because it never learned UNKNOWN_MAC.
+        clear_monitor_counts();
+        drv.send_simple_frame(0, MAC0, UNKNOWN_MAC); 
+        
+        repeat(200) @(vif.cb);
+        
+        // If it flooded, it should appear on ports 1, 2, and 3.
+        if (mon.frame_count[1] > 0 && mon.frame_count[2] > 0) begin
+            //$display("[TC9] PASS: Switch correctly ignored Source MAC of corrupted frames.");
+        end else begin
+            $error("[TC9] FAIL: Switch learned a MAC from a corrupted frame! Security risk.");
+            sb.error_count++;
+        end
+
+        sb.report("TC9");
+    endtask
 
     ////////////////////////////// DEBUGGING /////////////////////////////////////////////
     // // Debug TX

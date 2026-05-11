@@ -205,7 +205,6 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
 
         int port = f.src_port;
 
-        f.build();
         f.dst_port = compute_expected(f);
 
         // push deep copies into each expected queue
@@ -240,9 +239,36 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
     );
 
         frame f = new(src_mac, dst_mac, src_port);
+        f.build(46); // Default to minimum size for "simple" frames
         send_frame(f);
 
     endtask
+
+    task send_corrupted_frame(frame f);
+        int port = f.src_port;
+        int last_idx;
+
+        // corrupt by flipping last fcs byte
+        last_idx = f.data.size() - 1;
+        f.data[last_idx] = ~f.data[last_idx];
+
+        $display("[%0t] DRV: sending CORRUPTED frame from port %0d (FCS byte %0d flipped to %02x)",
+             $time, port, last_idx, f.data[last_idx]);
+
+        vif.cb.rx_ctrl[port] <= 0;
+        @(vif.cb);
+
+        foreach (f.data[i]) begin
+            vif.cb.rx_ctrl[port] <= 1;
+            vif.cb.rx_data[port*DATA_W +: DATA_W] <= f.data[i];
+            @(vif.cb);
+        end
+
+        vif.cb.rx_ctrl[port] <= 0;
+        repeat (12) @(vif.cb);
+
+    endtask
+
 
 endclass
 
@@ -270,10 +296,11 @@ class tx_monitor #(parameter PORTS=4, DATA_W=8);
         f.dst_mac = 0;
         f.src_mac = 0;
 
-        for (int i = 0; i < 6; i++)
+        // skip 8 bytes (7 Preamble + 1 SFD)
+        for (int i = 8; i < 14; i++)
             f.dst_mac = (f.dst_mac << 8) | f.data[i];
 
-        for (int i = 6; i < 12; i++)
+        for (int i = 14; i < 19; i++)
             f.src_mac = (f.src_mac << 8) | f.data[i];
 
     endfunction
@@ -341,7 +368,7 @@ class scoreboard #(parameter PORTS=4);
 
     mailbox #(frame) exp_q[PORTS];
     mailbox #(frame) act_q[PORTS];
-
+    
     int error_count = 0;
     int compare_count = 0;
 
