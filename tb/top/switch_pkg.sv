@@ -133,12 +133,16 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
     virtual switch_if vif;
     mailbox #(frame) exp_q[PORTS];
 
+    // internal queues
+    mailbox #(frame) drv_port_q[PORTS];
+
     function new(
         virtual switch_if vif,
         mailbox #(frame) exp_q[PORTS]
     );
         this.vif   = vif;
         this.exp_q = exp_q;
+        foreach (drv_port_q[i]) drv_port_q[i] = new();
 
         $display("[%0t] DRV: constructed", $time);
     endfunction
@@ -201,33 +205,33 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
 
     ////////////////// SEND FRAME //////////////////
 
-    task send_frame(frame f);
-
-        int port = f.src_port;
-
-        f.dst_port = compute_expected(f);
-
-        // push deep copies into each expected queue
-        for (int p = 0; p < PORTS; p++) begin
-            if (f.dst_port[p]) begin
-                frame f_copy = copy_frame(f);
-                exp_q[p].put(f_copy);
-            end
-        end
-
-        vif.cb.rx_ctrl[port] <= 0;
+    task drive_physical_pins(frame f);
+        int p = f.src_port;
+        vif.cb.rx_ctrl[p] <= 0;
         @(vif.cb);
-
         foreach (f.data[i]) begin
-            vif.cb.rx_ctrl[port] <= 1;
-            vif.cb.rx_data[port*DATA_W +: DATA_W] <= f.data[i];
+            vif.cb.rx_ctrl[p] <= 1;
+            vif.cb.rx_data[p*DATA_W +: DATA_W] <= f.data[i];
             @(vif.cb);
         end
-
-        vif.cb.rx_ctrl[port] <= 0;
-        // Wait for IFG
+        vif.cb.rx_ctrl[p] <= 0;
         repeat (12) @(vif.cb);
+    endtask
 
+    // Use for TC1-TC9. It waits for the frame to finish.
+    task send_frame(frame f);
+        f.dst_port = compute_expected(f);
+        foreach (exp_q[p]) if (f.dst_port[p]) exp_q[p].put(copy_frame(f));
+        
+        drive_physical_pins(f); // This blocks the testcase until done
+    endtask
+
+    // Use for Stress Testing. It returns in 0 time.
+    task queue_frame(frame f);
+        f.dst_port = compute_expected(f);
+        foreach (exp_q[p]) if (f.dst_port[p]) exp_q[p].put(copy_frame(f));
+        
+        drv_port_q[f.src_port].put(f); // drop in the mailbox
     endtask
 
     ////////////////// SIMPLE GENERATOR //////////////////
@@ -269,6 +273,28 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
 
     endtask
 
+////////////////// BACKGROUND MONITOR //////////////////
+    task run();
+        for (int i = 0; i < PORTS; i++) begin
+            automatic int port_idx = i; // Create a local copy for the thread
+            fork
+                forever begin
+                    frame f;
+                    drv_port_q[port_idx].get(f); // Wait for something to arrive
+                    drive_physical_pins(f);      // driver timezz
+                end
+            join_none
+        end
+    endtask
+    
+    // 
+    task wait_all_done();
+        for (int i = 0; i < PORTS; i++) begin
+            wait(drv_port_q[i].num() == 0);
+        end
+        repeat(50) @(vif.cb); // drain time
+    endtask
+
 
 endclass
 
@@ -300,7 +326,7 @@ class tx_monitor #(parameter PORTS=4, DATA_W=8);
         for (int i = 8; i < 14; i++)
             f.dst_mac = (f.dst_mac << 8) | f.data[i];
 
-        for (int i = 14; i < 19; i++)
+        for (int i = 14; i < 20; i++)
             f.src_mac = (f.src_mac << 8) | f.data[i];
 
     endfunction
@@ -372,6 +398,9 @@ class scoreboard #(parameter PORTS=4);
     int error_count = 0;
     int compare_count = 0;
 
+    // searchable list
+    frame exp_list[PORTS][$];
+
     function new(
         virtual switch_if vif,
         mailbox #(frame) exp_q[PORTS],
@@ -384,52 +413,76 @@ class scoreboard #(parameter PORTS=4);
 
 
     task run();
-
-        frame exp_pkt, act_pkt;
+        frame exp_pkt, act_pkt, f;
+        int p, i, d_idx, match_idx;
+        bit found;
 
         forever begin
             @(vif.cb);
 
-            for (int p = 0; p < PORTS; p++) begin
+            for (p = 0; p < PORTS; p++) begin
+                // 1. move the 'expected' mailbox into searchable list
+                while (exp_q[p].num() > 0) begin
+                    exp_q[p].get(f);
+                    exp_list[p].push_back(f);
+                end
 
-                // EXPECTED + ACTUAL -> compare
-                if (exp_q[p].num() > 0 && act_q[p].num() > 0) begin
-
-                    exp_q[p].get(exp_pkt);
+                // 2. check the 'actual' Mailbox for frames coming out of the hardware
+                while (act_q[p].num() > 0) begin
                     act_q[p].get(act_pkt);
 
-                    compare_count++;
+                    // the monitor just saw bits; we need to turn them into MAC addresses
+                    decode_mac_from_raw(act_pkt); 
 
-                    if (exp_pkt.data.size() != act_pkt.data.size()) begin
-                        $error("Port %0d: length mismatch", p);
-                        error_count++;
-                        continue;
-                    end
+                    found = 0;
+                    match_idx = -1;
 
-                    foreach (exp_pkt.data[i]) begin
-                        if (exp_pkt.data[i] != act_pkt.data[i]) begin
-                            $error("Port %0d: data mismatch at %0d", p, i);
-                            error_count++;
-                            break;
+                    // 3. find the oldest packet in the pool that matches this source
+                    foreach (exp_list[p][i]) begin
+                        if (exp_list[p][i].src_mac == act_pkt.src_mac) begin
+                            match_idx = i;
+                            found = 1;
+                            break; 
                         end
                     end
-                end
 
-                // UNEXPECTED ACTUAL
-                else if (act_q[p].num() > 0 && exp_q[p].num() == 0) begin
-                    act_q[p].get(act_pkt);
-                    $error("Port %0d: unexpected packet", p);
-                    error_count++;
+                    if (found) begin
+                        exp_pkt = exp_list[p][match_idx];
+                        exp_list[p].delete(match_idx); // remove it so we don't match it again
+                        compare_frames(exp_pkt, act_pkt, p);
+                    end else begin
+                        $error("[%0t] Port %0d: Unexpected packet! Source MAC %h not found in expected pool", 
+                               $time, p, act_pkt.src_mac);
+                        error_count++;
+                    end
                 end
-
-                // MISSING EXPECTED (optional but useful)
-                else if (exp_q[p].num() > 0 && act_q[p].num() == 0) begin
-                    // do nothing yet (could still arrive)
-                end
-
             end
         end
+    endtask
 
+    // helper task to conv the raw data into MAC 
+    task decode_mac_from_raw(frame f);
+        f.src_mac = 0;
+        f.dst_mac = 0;
+        // dst_mac is bytes 8-13, src_mac is bytes 14-19
+        for (int i=8; i<=13; i++) f.dst_mac = (f.dst_mac << 8) | f.data[i];
+        for (int i=14; i<=19; i++) f.src_mac = (f.src_mac << 8) | f.data[i];
+    endtask
+
+    task compare_frames(frame exp, frame act, int port);
+        compare_count++;
+        if (exp.data.size() != act.data.size()) begin
+            $error("Port %0d: Size Mismatch! Exp:%0d Act:%0d", port, exp.data.size(), act.data.size());
+            error_count++;
+            return;
+        end
+        foreach (exp.data[i]) begin
+            if (exp.data[i] !== act.data[i]) begin
+                $error("Port %0d: Data Mismatch at byte %0d! Exp:%02h Act:%02h", port, i, exp.data[i], act.data[i]);
+                error_count++;
+                break;
+            end
+        end
     endtask
 
 
