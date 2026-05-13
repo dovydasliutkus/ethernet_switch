@@ -361,7 +361,7 @@ module switch_top_tb;
     // TC10: Real contention (concurrent)
     task automatic tc10();
         // 3 senders blasting Port 0, 1 sender to Port 1 
-        localparam int BURST_SIZE = 2;
+        localparam int BURST_SIZE = 3;
         // P1->P0 x5, P2->P0 x5, P3->P0 x5, P0->P1 x5
         localparam int TOTAL = BURST_SIZE * 4;
         int payload_len;
@@ -542,7 +542,8 @@ generate
 
                     $error("[%0t] ERROR: VOQ FIFO FULL row=%0d col=%0d",
                            $time, i, j);
-
+                    #5000;
+                    $stop;
                 end
 
 

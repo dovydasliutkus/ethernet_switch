@@ -80,8 +80,8 @@ module drr_scheduler #(
         for (int i = 0; i < 4; i++) begin
             if (i_buffer_full[i])
                 space_left[i] = '0;
-            else if (i_buffer_empty[i])
-                space_left[i] = (OCC_WIDTH + 1)'(FIFO_DEPTH);
+            // else if (i_buffer_empty[i])
+            //     space_left[i] = (OCC_WIDTH + 1)'(FIFO_DEPTH);
             else
                 space_left[i] = (OCC_WIDTH + 1)'(FIFO_DEPTH) - i_buffer_usedw[i];
         end
@@ -102,10 +102,22 @@ module drr_scheduler #(
         end
     end
 
+    // VERSION WHERE ACCEPTING CAN'T change mid transaction
     always_ff @(posedge i_clk) begin
         if (!i_reset) accepting <= '0;
-        else          accepting <= will_accept; // to make sure wr_en doesnt go low mid transaction
+        else begin
+            for (int i = 0; i < 4; i++) begin
+                if (pkt_start[i] & will_accept[i])   accepting[i] <= 1'b1;  // commit on first byte
+                else if (!i_pkt_valid[i])             accepting[i] <= 1'b0;  // clear when packet ends
+            end
+        end
     end
+
+    // PREVIOUS VERSION
+    // always_ff @(posedge i_clk) begin
+    //     if (!i_reset) accepting <= '0;
+    //     else          accepting <= will_accept; // to make sure wr_en doesnt go low mid transaction
+    // end
 
     always_comb begin
         for (int i = 0; i < 4; i++) begin
