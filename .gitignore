@@ -30,6 +30,7 @@ fpga/template/*
 !fpga/template/README.md
 !fpga/template/test3.qsf
 !fpga/template/stp1.stp
+!fpga/template/switch_top.vhd
 
 # Dovydas's files
 doc/8023-2022.pdf
