@@ -84,3 +84,10 @@ To lists IPs and correspondig MACs
 ```
 arp -a 
 ```
+
+## 2026-05-13
+### Did
+
+- Ping works
+- Ping with max size (1472 bytes) also works
+- UDP stream at 1GB works with 64, 128, 256, 1024 and 1400 packet sizes. (pictures in `figures/`)
