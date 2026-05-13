@@ -108,13 +108,13 @@ module switch_top_tb;
         // Run the tests
         tc1();
         tc2();
-        // tc3();
-        // tc4();
-        // tc5();
-        // tc6();
-        // tc7();
-        // tc8();
-        // tc9();
+        tc3();
+        tc4();
+        tc5();
+        tc6();
+        tc7();
+        tc8();
+        tc9();
         tc10();
         $finish();
     end
@@ -361,9 +361,10 @@ module switch_top_tb;
     // TC10: Real contention (concurrent)
     task automatic tc10();
         // 3 senders blasting Port 0, 1 sender to Port 1 
-        localparam int BURST_SIZE = 5;
+        localparam int BURST_SIZE = 2;
         // P1->P0 x5, P2->P0 x5, P3->P0 x5, P0->P1 x5
         localparam int TOTAL = BURST_SIZE * 4;
+        int payload_len;
 
         sb.error_count   = 0;
         sb.compare_count = 0;
@@ -373,11 +374,12 @@ module switch_top_tb;
         // Port 0 concurrently sends to Port 1 so all 4 input pins are active.
         for (int n = 0; n < BURST_SIZE; n++) begin
             frame f0, f1, f2, f3;
+            payload_len = $urandom_range(46, 1500); 
 
-            f0 = new(MAC0, MAC1, 0); f0.build(128); drv.queue_frame(f0); // P0 -> P1
-            f1 = new(MAC1, MAC0, 1); f1.build(128); drv.queue_frame(f1); // P1 -> P0
-            f2 = new(MAC2, MAC0, 2); f2.build(128); drv.queue_frame(f2); // P2 -> P0
-            f3 = new(MAC3, MAC0, 3); f3.build(128); drv.queue_frame(f3); // P3 -> P0
+            f0 = new(MAC0, MAC1, 0); f0.build(payload_len); drv.queue_frame(f0); // P0 -> P1
+            f1 = new(MAC1, MAC0, 1); f1.build(payload_len); drv.queue_frame(f1); // P1 -> P0
+            f2 = new(MAC2, MAC0, 2); f2.build(payload_len); drv.queue_frame(f2); // P2 -> P0
+            f3 = new(MAC3, MAC0, 3); f3.build(payload_len); drv.queue_frame(f3); // P3 -> P0
         end
 
 
