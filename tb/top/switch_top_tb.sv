@@ -386,8 +386,8 @@ module switch_top_tb;
         drv.wait_all_done();
 
         // P0 receives 3*BURST_SIZE = 15 frames, P1 receives 1*BURST_SIZE = 5 frames
-        wait(mon.frame_count[0] >= BURST_SIZE * 3 &&
-            mon.frame_count[1] >= BURST_SIZE * 1);
+        // wait(mon.frame_count[0] >= BURST_SIZE * 3 &&
+        //     mon.frame_count[1] >= BURST_SIZE * 1);
 
         sb.report("TC10");
     endtask

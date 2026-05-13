@@ -10,8 +10,8 @@ module voq_buffer_cixb2 #(
 
     input logic [PORTS*DATA_W-1:0] i_data,
 
-    input logic [PORTS*PORTS-1:0] i_write_enable,
-    input logic [PORTS*PORTS-1:0] i_read_enable,
+    input logic [PORTS-1:0] i_write_enable [PORTS-1:0],
+    input logic [PORTS-1:0] i_read_enable  [PORTS-1:0],
 
     output logic [PORTS*DATA_W-1:0] o_tx_data,
     output logic [PORTS-1:0] o_tx_ctrl,
@@ -65,8 +65,8 @@ module voq_buffer_cixb2 #(
         for (int i = 0; i < PORTS; i++) begin // ROW
             for (int j = 0; j < PORTS; j++) begin // COLUNB
                 // connect scheduler to FIFO control
-                fifo_wen[i][j] = i_write_enable[i*PORTS + j];
-                fifo_ren[i][j] = i_read_enable[i*PORTS + j];
+                fifo_wen[i][j] = i_write_enable[j][i];
+                fifo_ren[i][j] = i_read_enable[j][i];
 
                 // each row gets its input data
                 fifo_wdata[i][j] = i_data[i*DATA_W +: DATA_W];
@@ -80,16 +80,16 @@ module voq_buffer_cixb2 #(
 
         for (int i = 0; i < PORTS; i++) begin
             for (int j = 0; j < PORTS; j++) begin
-                automatic int idx = i*PORTS + j;
+                automatic int idx = j*PORTS + i;
                 o_occupancy[idx*OCC_WIDTH +: OCC_WIDTH] = fifo_usedw[i][j];
-                o_full[i*PORTS + j] = fifo_full[i][j];
-                o_empty[i*PORTS + j] = fifo_empty[i][j];
+                o_full[j*PORTS + i] = fifo_full[i][j];
+                o_empty[j*PORTS + i] = fifo_empty[i][j];
             end
         end
     end
     ///////////////////////////////////////////////////
 
-    logic [PORTS*PORTS-1:0] read_enable_d;
+    logic [PORTS-1:0] read_enable_d [PORTS-1:0];
 
     always_ff @(posedge i_clk) begin
         read_enable_d <= i_read_enable;
@@ -100,7 +100,7 @@ module voq_buffer_cixb2 #(
 
         for (int j = 0; j < PORTS; j++) begin
             for (int i = 0; i < PORTS; i++) begin
-                if (read_enable_d[i*PORTS + j]) begin
+                if (read_enable_d[j][i]) begin
                     o_tx_data_next[j*DATA_W +: DATA_W] = fifo_rdata[i][j];
                     o_tx_ctrl_next[j] = 1'b1;
                 end

@@ -21,26 +21,12 @@ module crossbar_top #(
 ); 
 
 
-    logic [PORTS*PORTS-1:0] write_enable;
-    logic [PORTS*PORTS-1:0] read_enable;
-
     logic [PORTS*PORTS-1:0] full;
     logic [PORTS*PORTS-1:0] empty;
     logic [PORTS*PORTS*OCC_WIDTH-1:0] occupancy;
 
-
     logic [PORTS-1:0] buffer_wr_en [PORTS-1:0];
     logic [PORTS-1:0] buffer_rd_en [PORTS-1:0];
-
-    always_comb begin
-        for (int i = 0; i < PORTS; i++) begin
-            for (int j = 0; j < PORTS; j++) begin
-                write_enable[i*PORTS + j] = buffer_wr_en[j][i];
-                read_enable[i*PORTS + j]  = buffer_rd_en[j][i];
-                
-            end
-        end
-    end 
 
     voq_buffer_cixb2  #(.DATA_W(DATA_W), .PORTS(PORTS), .FIFO_DEPTH(FIFO_DEPTH)
     ) u_voq_buffer_cixb2 (
@@ -49,8 +35,8 @@ module crossbar_top #(
 
         .i_data(i_data),
 
-        .i_write_enable(write_enable), // 16-bit flat array, 4 bits per port
-        .i_read_enable(read_enable),   // 16-bit flat array, 4 bits per port
+        .i_write_enable(buffer_wr_en),
+        .i_read_enable(buffer_rd_en),
 
         .o_tx_data(o_tx_data),
         .o_tx_ctrl(o_tx_ctrl),
@@ -63,35 +49,10 @@ module crossbar_top #(
 
     genvar i;
 
-    logic [OCC_WIDTH-1:0] usedw_col [PORTS][PORTS]; // [j][i]
-    logic [PORTS-1:0]     full_col [PORTS]; // [j][i]
-    logic [PORTS-1:0]     empty_col [PORTS]; // [j][i]
-
-    always_comb begin
-        for (int i = 0; i < PORTS; i++) begin
-            for (int j = 0; j < PORTS; j++) begin
-                automatic int idx = i*PORTS + j;
-                // transpose: [i][j] becomes [j][i]
-                usedw_col[j][i] = occupancy[idx*OCC_WIDTH +: OCC_WIDTH];
-                full_col[j][i]  = full[idx];
-                empty_col[j][i] = empty[idx];
-            end
-        end
-    end
-
-    logic [PORTS-1:0] dst_col [PORTS-1:0];    // To store the columns
-
-    always_comb begin
-        for (int i = 0; i < PORTS; i++) begin
-            for (int j = 0; j < PORTS; j++) begin
-                dst_col[i][j] = i_dst_port[j][i];
-            end
-        end
-    end
-
     generate
         for (i = 0; i < PORTS; i++) begin : gen_sched
             drr_scheduler #(
+                .PORT_ID(i),
                 .MAX_PKT_SIZE(MAX_PKT_SIZE),
                 .LEN_WIDTH(LEN_WIDTH),
                 .FIFO_DEPTH(FIFO_DEPTH),
@@ -100,11 +61,11 @@ module crossbar_top #(
                 .i_clk(i_clk),
                 .i_reset(i_rst),
                 .i_pkt_valid(i_pkt_valid),
-                .i_dst_port(dst_col[i]),
+                .i_dst_port(i_dst_port),
                 .i_pkt_len(i_pkt_len),
-                .i_buffer_usedw(usedw_col[i]),
-                .i_buffer_full(full_col[i]),
-                .i_buffer_empty(empty_col[i]),
+                .i_buffer_usedw(occupancy[i*PORTS*OCC_WIDTH +: PORTS*OCC_WIDTH]),
+                .i_buffer_full(full[i*PORTS +: PORTS]),
+                .i_buffer_empty(empty[i*PORTS +: PORTS]),
                 .o_buffer_wr_en(buffer_wr_en[i]),
                 .o_buffer_rd_en(buffer_rd_en[i])
             );

@@ -5,6 +5,7 @@
 // 1. TODO: add a safety feature in case i_pkt_valid goes low mid transaction
 
 module drr_scheduler #(
+    parameter int PORT_ID       = 0,
     parameter int MAX_PKT_SIZE  = 1518,                 // Bytes of credit added per DRR turn
     parameter int LEN_WIDTH     = $clog2(MAX_PKT_SIZE), // Packet length field width (for max. 1518 byte packet)
     parameter int FIFO_DEPTH    = 4096,                 // data FIFO depth
@@ -17,13 +18,13 @@ module drr_scheduler #(
     // FCS/control signals
     // ---------------------------------------------------
     input logic [3:0]                i_pkt_valid,
-    input logic [3:0]                i_dst_port, 
+    input logic [3:0]                i_dst_port [3:0],
     input logic[LEN_WIDTH-1:0]       i_pkt_len [3:0],   // byte length of packet at input i
 
     // ---------------------------------------------------
     // buffer block signals
     // ---------------------------------------------------
-    input  logic [OCC_WIDTH-1:0]     i_buffer_usedw [3:0],
+    input  logic [4*OCC_WIDTH-1:0]   i_buffer_usedw,
     input  logic [3:0]               i_buffer_full,
     input  logic [3:0]               i_buffer_empty,
     output logic [3:0]               o_buffer_wr_en,       
@@ -83,7 +84,7 @@ module drr_scheduler #(
             // else if (i_buffer_empty[i])
             //     space_left[i] = (OCC_WIDTH + 1)'(FIFO_DEPTH);
             else
-                space_left[i] = (OCC_WIDTH + 1)'(FIFO_DEPTH) - i_buffer_usedw[i];
+                space_left[i] = (OCC_WIDTH + 1)'(FIFO_DEPTH) - i_buffer_usedw[i*OCC_WIDTH +: OCC_WIDTH];
         end
     end
 
@@ -94,7 +95,7 @@ module drr_scheduler #(
     always_comb begin
         for (int i = 0; i < 4; i++) begin
             will_accept[i] = i_pkt_valid[i] 
-                           & i_dst_port[i] 
+                           & i_dst_port[i][PORT_ID]
                            & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) 
                            & ~i_buffer_full[i] 
                            & ~len_full[i]
