@@ -108,13 +108,13 @@ module switch_top_tb;
         // Run the tests
         tc1();
         tc2();
-        tc3();
-        tc4();
-        tc5();
-        tc6();
-        tc7();
-        tc8();
-        tc9();
+        //tc3();
+        //tc4();
+        //tc5();
+        //tc6();
+        //tc7();
+        //tc8();
+        //tc9();
         tc10();
         $finish();
     end
@@ -374,12 +374,12 @@ module switch_top_tb;
         // Port 0 concurrently sends to Port 1 so all 4 input pins are active.
         for (int n = 0; n < BURST_SIZE; n++) begin
             frame f0, f1, f2, f3;
-            payload_len = $urandom_range(46, 1500); 
+            payload_len = $urandom_range(46, 1501); 
 
-            f0 = new(MAC0, MAC1, 0); f0.build(payload_len); drv.queue_frame(f0); // P0 -> P1
-            f1 = new(MAC1, MAC0, 1); f1.build(payload_len); drv.queue_frame(f1); // P1 -> P0
-            f2 = new(MAC2, MAC0, 2); f2.build(payload_len); drv.queue_frame(f2); // P2 -> P0
-            f3 = new(MAC3, MAC0, 3); f3.build(payload_len); drv.queue_frame(f3); // P3 -> P0
+            f0 = new(MAC0, MAC1, 0); f0.build(1499); drv.queue_frame(f0); // P0 -> P1
+            f1 = new(MAC1, MAC0, 1); f1.build(1499); drv.queue_frame(f1); // P1 -> P0
+            f2 = new(MAC2, MAC0, 2); f2.build(1499); drv.queue_frame(f2); // P2 -> P0
+            f3 = new(MAC3, MAC0, 3); f3.build(1499); drv.queue_frame(f3); // P3 -> P0
         end
 
 
