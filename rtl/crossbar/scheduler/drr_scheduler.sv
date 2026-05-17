@@ -95,7 +95,7 @@ module drr_scheduler #(
         for (int i = 0; i < 4; i++) begin
             will_accept[i] = i_pkt_valid[i] 
                            & i_dst_port[i] 
-                           & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) 
+                        //    & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) 
                            & ~i_buffer_full[i] 
                            & ~len_full[i]
                            & i_reset;

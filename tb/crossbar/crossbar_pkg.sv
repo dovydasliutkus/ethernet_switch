@@ -77,7 +77,7 @@ package crossbar_pkg;
             end
 
             vif.cb.pkt_valid[src] <= 0;
-            @(vif.cb);
+            repeat(12) @(vif.cb);
 
         endtask
 

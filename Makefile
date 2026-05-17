@@ -78,6 +78,7 @@ TOP_SV_FILES = \
 
 
 TOP_TB_FILES = \
+	$(CROSSBAR_TB_FILES) \
 	$(TB)/top/switch_pkg.sv \
 	$(TB)/top/switch_if.sv \
 	$(TB)/top/switch_top_tb.sv \

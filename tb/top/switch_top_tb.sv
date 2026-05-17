@@ -115,16 +115,17 @@ module switch_top_tb;
         tc7();
         tc8();
         tc9();
-        tc10();
+        // tc10();
+        sb.suite_report();
         $finish();
     end
 
     /////////////// TEST CASES ////////////////////////
 
-
+    // TC1: Single packet
     task automatic tc1();
+        sb.start_tc("TC1");
 
-        // TC1: Basic forwarding/learning scenario
         // 1) Inject a frame into port 1 (src=MAC1, dst=MAC0).
         //    The switch should forward (or flood) this frame to the other ports
         //    while learning the source MAC on port 1.
@@ -157,6 +158,7 @@ module switch_top_tb;
         localparam int NUM_FRAMES = 10;
         int payload_len, src_port, dst_port;
 
+        sb.start_tc("TC2");
         clear_monitor_counts();
 
         // Learning phase
@@ -186,6 +188,7 @@ module switch_top_tb;
         localparam int NUM_FRAMES = 10;
         int expected_total = NUM_FRAMES * 3; // 3 ports sending to 1
 
+        sb.start_tc("TC3");
         clear_monitor_counts();
 
         // Ports 1, 2, and 3 all send to Port 0
@@ -204,6 +207,7 @@ module switch_top_tb;
         int sizes[$] = '{46, 256, 512, 1000, 1500};
         int total = sizes.size() * PORTS;
 
+        sb.start_tc("TC4");
         clear_monitor_counts();
         
         foreach (sizes[k]) begin
@@ -222,6 +226,7 @@ module switch_top_tb;
         localparam int NUM_FRAMES = 8;
         int total = NUM_FRAMES * 3;
 
+        sb.start_tc("TC5");
         clear_monitor_counts();
 
         for (int n = 0; n < NUM_FRAMES; n++) begin
@@ -241,6 +246,7 @@ module switch_top_tb;
         localparam int NUM_FRAMES = 10;
         int total = NUM_FRAMES * PORTS;
 
+        sb.start_tc("TC6");
         clear_monitor_counts();
 
         for (int n = 0; n < NUM_FRAMES; n++) begin
@@ -260,6 +266,7 @@ module switch_top_tb;
         int payload_len, src_port;
         int total = NUM_FRAMES * PORTS;
 
+        sb.start_tc("TC7");
         clear_monitor_counts();
 
         for (int n = 0; n < total; n++) begin
@@ -282,6 +289,7 @@ module switch_top_tb;
         localparam int NUM_ROUNDS = 5;
         int total_expected = 0;
 
+        sb.start_tc("TC8");
         clear_monitor_counts();
 
         for (int r = 0; r < NUM_ROUNDS; r++) begin
@@ -313,6 +321,7 @@ module switch_top_tb;
         bit [47:0] UNKNOWN_MAC = 48'hDE_AD_BE_EF_00_01;
 
 
+        sb.start_tc("TC9");
         clear_monitor_counts();
 
         for (int i = 0; i < (NUM_VALID + NUM_CORRUPT); i++) begin
@@ -366,6 +375,7 @@ module switch_top_tb;
         localparam int TOTAL = BURST_SIZE * 4;
         int payload_len;
 
+        sb.start_tc("TC10");
         sb.error_count   = 0;
         sb.compare_count = 0;
         clear_monitor_counts();

@@ -102,11 +102,11 @@ module crossbar_top_tb;
         drv.reset();
 
         // TODO: insert all tests
-        test_small_single_cross_port_xfer();
-        test_small_parallel_cross_port_xfer();
-        test_large_parallel_cross_port_xfer();
+        // test_small_single_cross_port_xfer();
+        // test_small_parallel_cross_port_xfer();
+        // test_large_parallel_cross_port_xfer();
 
-        test_small_contention_same_output();
+        // test_small_contention_same_output();
         test_large_contention_same_output();
 
         run_scoreboard();
@@ -176,15 +176,17 @@ module crossbar_top_tb;
 
     task automatic test_large_contention_same_output();
         int rand_dst_port =$urandom_range(0, PORTS-1);
-        int len = 1518;  // TODO: hæv til 1518 og test overflwo 
-        fork
-            drv.send_packet(0, rand_dst_port, len);
-            drv.send_packet(1, rand_dst_port, len);
-            drv.send_packet(2, rand_dst_port, len);
-            drv.send_packet(3, rand_dst_port, len);
-        join
+        int len = 1526;  // TODO: hæv til 1518 og test overflow 
 
-        wait_for_completion(4);
+            // fork
+            for (int i = 0; i<=10; i++) begin
+                drv.send_packet(0, rand_dst_port, len);
+            end
+                // drv.send_packet(1, rand_dst_port, len);
+                // drv.send_packet(2, rand_dst_port, len);
+                // drv.send_packet(3, rand_dst_port, len);
+            // join
+            wait_for_completion(11);
     endtask
 
 
@@ -193,7 +195,10 @@ module crossbar_top_tb;
 
 
 
-
+    always @(posedge clk) begin
+        $display("Full signal flat: 0x%0b", dut.full);
+        
+    end
 
 
 

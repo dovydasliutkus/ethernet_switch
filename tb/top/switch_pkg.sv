@@ -1,5 +1,40 @@
 package switch_pkg;
 
+localparam int PACKET_DUMP_BYTES_PER_LINE = 16;
+
+function automatic void print_timestamped_packet(
+    input string title,
+    input byte   pkt[$]
+);
+    int line_start;
+    int line_end;
+
+    $display("[%16t] %s (%0d bytes)", $time, title, pkt.size());
+
+    for (line_start = 0; line_start < pkt.size(); line_start += PACKET_DUMP_BYTES_PER_LINE) begin
+        line_end = line_start + PACKET_DUMP_BYTES_PER_LINE;
+        if (line_end > pkt.size())
+            line_end = pkt.size();
+
+        $write("[%16t]   %04x : ", $time, line_start);
+
+        for (int i = line_start; i < line_start + PACKET_DUMP_BYTES_PER_LINE; i++) begin
+            if (i < pkt.size())
+                $write("%02x ", pkt[i]);
+            else
+                $write("   ");
+        end
+
+        $write(" |");
+        for (int i = line_start; i < line_end; i++) begin
+            $write(".");
+        end
+        for (int i = line_end; i < line_start + PACKET_DUMP_BYTES_PER_LINE; i++)
+            $write(" ");
+        $display("|");
+    end
+endfunction
+
 //////////////////// FRAME ////////////////////
 
 class frame;
@@ -21,7 +56,7 @@ class frame;
         this.dst_mac  = dst_mac;
         this.src_port = src_port;
 
-        $display("[%0t] FRAME: created src=%h dst=%h in_port=%0d",
+        $display("[%16t] FRAME: created src=%h dst=%h in_port=%0d",
                 $time, src_mac, dst_mac, src_port);
     endfunction
 
@@ -49,7 +84,7 @@ class frame;
         byte frame_data[$];
         bit [31:0] fcs;
 
-        $display("[%0t] FRAME: building packet...", $time);
+        $display("[%16t] FRAME: building packet...", $time);
 
         data.delete();
 
@@ -78,7 +113,7 @@ class frame;
 
         fcs = eth_crc32(frame_data);
 
-        $display("  FCS = %08x", fcs);
+        // $display("  FCS = %08x", fcs);
 
         foreach (frame_data[i])
             data.push_back(frame_data[i]);
@@ -87,11 +122,8 @@ class frame;
         for (int i = 0; i < 4; i++)
             data.push_back(fcs >> (i*8));
 
-        $display("[%0t] FRAME: build complete, size=%0d", $time, data.size());
-        $write("[%0t] FRAME FULL PACKET (%0d bytes): ", $time, data.size());
-        foreach (data[i])
-            $write("%02x ", data[i]);
-        $display("");
+        $display("[%16t] FRAME: build complete, size=%0d", $time, data.size());
+        print_timestamped_packet("[FRAME] Full packet", data);
 
     endfunction
 
@@ -144,13 +176,13 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
         this.exp_q = exp_q;
         foreach (drv_port_q[i]) drv_port_q[i] = new();
 
-        $display("[%0t] DRV: constructed", $time);
+        $display("[%16t] DRV: constructed", $time);
     endfunction
 
     ////////////////// RESET //////////////////
 
     task reset();
-        $display("[%0t] DRV: reset start", $time);
+        $display("[%16t] DRV: reset start", $time);
 
         vif.reset <= 0;
         vif.cb.rx_ctrl <= '0;
@@ -162,7 +194,7 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
 
         repeat (5) @(vif.cb);
 
-        $display("[%0t] DRV: reset done", $time);
+        $display("[%16t] DRV: reset done", $time);
     endtask
 
     ////////////////// EXPECTED MODEL //////////////////
@@ -256,7 +288,7 @@ class switch_driver #(parameter PORTS=4, DATA_W=8);
         last_idx = f.data.size() - 1;
         f.data[last_idx] = ~f.data[last_idx];
 
-        $display("[%0t] DRV: sending CORRUPTED frame from port %0d (FCS byte %0d flipped to %02x)",
+        $display("[%16t] DRV: sending CORRUPTED frame from port %0d (FCS byte %0d flipped to %02x)",
              $time, port, last_idx, f.data[last_idx]);
 
         vif.cb.rx_ctrl[port] <= 0;
@@ -363,14 +395,11 @@ class tx_monitor #(parameter PORTS=4, DATA_W=8);
 
                     decode_mac(pkt[p]);
 
-                    // PRINT FULL PACKET
-                    $write("[%0t] TX PORT %0d FRAME (%0d bytes): ",
-                        $time, p, pkt[p].data.size());
-
-                    foreach (pkt[p].data[i]) begin
-                        $write("%02x ", pkt[p].data[i]);
-                    end
-                    $display("");
+                    print_timestamped_packet(
+                        $sformatf("[TX] Packet received @ port %0d, dst=%012h, src=%012h",
+                                  p, pkt[p].dst_mac, pkt[p].src_mac),
+                        pkt[p].data
+                    );
 
                     act_q[p].put(pkt[p]);
 
@@ -397,6 +426,11 @@ class scoreboard #(parameter PORTS=4);
     
     int error_count = 0;
     int compare_count = 0;
+    string current_tc = "NO_TC";
+    int tc_start_error_count = 0;
+    int tc_start_compare_count = 0;
+    string suite_failed_tcs[$];
+    string suite_seen_tcs[$];
 
     // searchable list
     frame exp_list[PORTS][$];
@@ -410,6 +444,13 @@ class scoreboard #(parameter PORTS=4);
         this.exp_q = exp_q;
         this.act_q = act_q;
     endfunction
+
+    task start_tc(string tc_name);
+        current_tc = tc_name;
+        tc_start_error_count = error_count;
+        tc_start_compare_count = compare_count;
+        $display("[%16t] [SB] ---- %s START ----", $time, current_tc);
+    endtask
 
 
     task run();
@@ -438,7 +479,7 @@ class scoreboard #(parameter PORTS=4);
                     match_idx = -1;
 
                     // 3. find the oldest packet in the pool that matches this source
-                    foreach (exp_list[p][i]) begin
+                    for (i = 0; i < exp_list[p].size(); i++) begin
                         if (exp_list[p][i].src_mac == act_pkt.src_mac) begin
                             match_idx = i;
                             found = 1;
@@ -451,8 +492,9 @@ class scoreboard #(parameter PORTS=4);
                         exp_list[p].delete(match_idx); // remove it so we don't match it again
                         compare_frames(exp_pkt, act_pkt, p);
                     end else begin
-                        $error("[%0t] Port %0d: Unexpected packet! Source MAC %h not found in expected pool", 
+                        $error("[%16t] [SB] Port %0d: Unexpected packet! Source MAC %h not found in expected pool", 
                                $time, p, act_pkt.src_mac);
+                        print_timestamped_packet("[SB] Unexpected packet", act_pkt.data);
                         error_count++;
                     end
                 end
@@ -472,33 +514,62 @@ class scoreboard #(parameter PORTS=4);
     task compare_frames(frame exp, frame act, int port);
         compare_count++;
         if (exp.data.size() != act.data.size()) begin
-            $error("Port %0d: Size Mismatch! Exp:%0d Act:%0d", port, exp.data.size(), act.data.size());
+            $error("[%16t] [SB] Port %0d: Size mismatch! Exp:%0d Act:%0d",
+                   $time, port, exp.data.size(), act.data.size());
+            print_timestamped_packet("[SB] Expected packet", exp.data);
+            print_timestamped_packet("[SB] Actual packet", act.data);
             error_count++;
             return;
         end
+
         foreach (exp.data[i]) begin
             if (exp.data[i] !== act.data[i]) begin
-                $error("Port %0d: Data Mismatch at byte %0d! Exp:%02h Act:%02h", port, i, exp.data[i], act.data[i]);
+                $error("[%16t] [SB] Port %0d: Data mismatch at byte %0d! Exp:%02h Act:%02h",
+                       $time, port, i, exp.data[i], act.data[i]);
+                print_timestamped_packet("[SB] Expected packet", exp.data);
+                print_timestamped_packet("[SB] Actual packet", act.data);
                 error_count++;
                 break;
             end
         end
+
     endtask
 
 
     ////////////////// FINAL REPORT //////////////////
 
     task report(string tc_name);
+        int tc_errors;
+        int tc_checks;
 
         // small drain time to finish comparisons
         repeat (10) @(vif.cb);
 
-        if (error_count == 0)
-            $display(" %s : PASS (%0d checks) ", tc_name, compare_count);
-        else
-            $display(" %s : FAIL (%0d errors, %0d checks)",
-                     tc_name, error_count, compare_count);
+        tc_errors = error_count - tc_start_error_count;
+        tc_checks = compare_count - tc_start_compare_count;
 
+        if (tc_errors == 0)
+            $display("[%16t] [SB] %s : PASS (%0d checks) ", $time, tc_name, tc_checks);
+        else begin
+            $display("[%16t] [SB] %s : FAIL (%0d errors, %0d checks)",
+                     $time, tc_name, tc_errors, tc_checks);
+            suite_failed_tcs.push_back(tc_name);
+        end
+
+        suite_seen_tcs.push_back(tc_name);
+
+    endtask
+
+    task suite_report();
+        $display("[%16t] [SB] ================================", $time);
+        if (suite_failed_tcs.size() == 0) begin
+            $display("[%16t] [SB] ALL TESTS PASS (%0d tests)", $time, suite_seen_tcs.size());
+        end else begin
+            $display("[%16t] [SB] The following tests failed:", $time);
+            foreach (suite_failed_tcs[i])
+                $display("[%16t] [SB] %s: FAIL", $time, suite_failed_tcs[i]);
+        end
+        $display("[%16t] [SB] ================================", $time);
     endtask
 
 endclass
