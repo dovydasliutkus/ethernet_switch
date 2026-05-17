@@ -108,13 +108,13 @@ module switch_top_tb;
         // Run the tests
         tc1();
         tc2();
-        //tc3();
-        //tc4();
-        //tc5();
-        //tc6();
-        //tc7();
-        //tc8();
-        //tc9();
+        // tc3();
+        // tc4();
+        // tc5();
+        // tc6();
+        // tc7();
+        // tc8();
+        // tc9();
         tc10();
         $finish();
     end

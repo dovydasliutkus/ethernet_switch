@@ -1,6 +1,6 @@
 module output_control (
     input   logic  i_clk,
-    input   logic  i_reset,   // Synchronous active-high
+    input   logic  i_reset,   // Synchronous active-low
 
     // Ingress FIFO metadata read side (per port, indexed 0-3)
     input   logic [47:0] i_src_mac          [3:0],
@@ -31,18 +31,14 @@ module output_control (
     output  logic [10:0] o_packet_length [3:0]
 );
 
-    // MAC-learner mini-FSM  (IDLE -> REQ -> WAIT -> IDLE)
     typedef enum logic [1:0] {MAC_IDLE, MAC_REQ, MAC_WAIT} mac_state_t;
     mac_state_t mac_state;
 
     logic [1:0] arb_port;
     logic       arb_found;
     logic [1:0] p;
-
-    // Internal state
     logic [1:0]  rr_ptr;
     logic [1:0]  sel_port;       // port currently going through MAC learner
-
     logic [3:0]  busy;           // port is transmitting or draining
     logic [3:0]  dropping;       // current frame on port p is a drop
     logic [10:0] remaining  [3:0];
@@ -190,8 +186,8 @@ module output_control (
         for (int p = 0; p < 4; p++) begin
             o_datafifo_ren[p]  = busy[p];
             o_packet_valid[p]  = busy[p] && !dropping[p];
-            o_dst_port[p]      = (busy[p] && !dropping[p]) ? dst_port_r[p] : 4'b0;
-            o_packet_length[p] = (busy[p] && !dropping[p]) ? length_r[p]   : 11'b0;
+            o_dst_port[p]      = (busy[p] && !dropping[p]) ? dst_port_r[p] : 4'b0;  // Don't put trash out for dst_port for an invalid packet
+            o_packet_length[p] = (busy[p] && !dropping[p]) ? length_r[p]   : 11'b0; // Don't put the length out for an invalid packet
         end
     end
 

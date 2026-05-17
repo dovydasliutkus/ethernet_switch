@@ -1,6 +1,6 @@
 module fcs_control(
     input   logic  i_clk,
-    input   logic  i_reset,   // Synchronous active-high
+    input   logic  i_reset,   // Synchronous active-low
 
     // Inputs from ethernet PHY
     input   logic [3:0]   i_rx_ctrl,
@@ -59,9 +59,9 @@ module fcs_control(
                 .i_srcmac_ren    ( w_srcmac_ren[i]      ),
                 .i_dstmac_ren    ( w_dstmac_ren[i]      ),
                 .o_status_empty  ( w_status_empty[i]    ),
-                .o_length_empty  (),  // Unused fifo signals  // TODO WHY IS IT UNCONNECTED
-                .o_srcmac_empty  (),                          // TODO WHY IS IT UNCONNECTED
-                .o_dstmac_empty  ()                           // TODO WHY IS IT UNCONNECTED
+                .o_length_empty  (),  // Fifo signals for debugging  
+                .o_srcmac_empty  (),                          
+                .o_dstmac_empty  ()                           
             );  
         end
     endgenerate
