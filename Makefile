@@ -37,6 +37,16 @@ CROSSBAR_TB_FILES = \
 
 CROSSBAR_TOP = crossbar_top_tb
 
+########################### SCHEDULER ###########################
+SCHEDULER_SV_FILES = \
+    $(RTL)/crossbar/FIFOs/pkt_len_fifo.v \
+    $(RTL)/crossbar/scheduler/drr_scheduler.sv
+
+SCHEDULER_TB_FILES = \
+    $(TB)/crossbar/scheduler/tb_drr_scheduler.sv
+
+SCHEDULER_TOP = tb_drr_scheduler
+
 ############################# FCS CONTROL ################################
 # Test for crc_calculator
 CRC_SV_FILES = \
@@ -189,7 +199,7 @@ scheduler_batch: scheduler_compile
 	$(VSIM) -c $(SCHEDULER_TOP) -do "run -all; quit"
 
 scheduler_wave: scheduler_compile
-	$(VSIM) -onfinish stop work.$(SCHEDULER_TOP)  -do "add wave -r *; run -all"
+	$(VSIM) -onfinish stop work.$(SCHEDULER_TOP) -do wave_scheduler.do
 
 clean:
 	@if exist work rmdir /s /q work

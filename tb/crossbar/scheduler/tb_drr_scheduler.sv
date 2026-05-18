@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ps/1ps
 // =============================================================================
 // File        : tb_drr_schedueler.sv
 // Description : Testbench for scheduler module
@@ -57,7 +57,7 @@ module tb_drr_scheduler;
         .i_pkt_valid     (pkt_valid),
         .i_dst_port      (dst_port),
         .i_pkt_len       (i_pkt_len),
-        .i_buffer_usedw  (buffer_usedw),
+        .i_buffer_usedw  ({buffer_usedw[3], buffer_usedw[2], buffer_usedw[1], buffer_usedw[0]}),
         .i_buffer_full   (buffer_full),
         .i_buffer_empty  (buffer_empty),
         .o_buffer_wr_en  (buffer_wr_en),
@@ -160,21 +160,6 @@ module tb_drr_scheduler;
         $display("\nT%0d: DRR Fairness (Small vs Large)", test_num);
         run_test_9();
 
-        // T10: Back-to-back packets from same queue when deficit allows
-        test_num = 10;
-        $display("\nT%0d: Back-to-back packets from same queue", test_num);
-        begin
-            int pkt_len = 64;
-            int rd_edge_count;
-
-            do_reset();
-            // Push two packets back-to-back from port 0
-            dst_port[0]  = 4'b0001;
-            i_pkt_len[0] = LEN_WIDTH'(pkt_len);
-            pkt_valid[0] = 1'b1;
-
-
-        end
             
         $finish;
 
