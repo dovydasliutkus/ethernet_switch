@@ -49,7 +49,7 @@
 2. Found that the Ethernet PHY gives the packet including the preamble and start-of-frame delimiter. Added a fix in `crc_calculator.sv` to ignore the first 8 bytes for crc calculation, but include them in `packet_length` as they are still stored in the `data_fifo`. 🔵 PUT IN REPORT: Could exclude preamble+start-of-frame delimeter out of the `data_fifo` and then put it back on before transmitting. This is a minor optimization.
 3. Ethernet uses `CRC32` (input and output bit-reflected), while our `crc_calculator` implements `CRC32_BZIP2` (no reflection). To compensate, we feed data into the calculator with bit order reversed. This also means dst and src MAC addresses for the MAC learner arrive with reversed bit order. Ordering in the `data_fifo` is unchanged. 🔴 TODO: Make sure the broadcast bit is taken from the right place.
 
-## Setup for PING
+## Setup for PING WINDOWS
 
 1. Set a static IP. See picture below.
 
@@ -84,6 +84,34 @@ To lists IPs and correspondig MACs
 ```
 arp -a 
 ```
+## Setup for PING LINUX
+```
+ip link show
+sudo ip addr add 192.168.1.20/24 dev <insert eth interface here>
+sudo ip link set <insert eth interface here> up
+ip route  # shows a route for your subnet
+```
+
+## Testing commands
+
+Ping max length (WINDOWS)
+```
+ping -t 1472 192.168.1.20
+```
+
+UDP:
+```
+iperf3 -s
+ iperf3 -c 192.168.1.20 -u -b 1G -l 1024
+```
+
+TCP:
+```
+iperf3 -s
+iperf3 -c 192.168.1.20 -t 10
+iperf3 -c 192.168.1.20 -t 10 -l 1400 -w 256K
+
+```
 
 ## 2026-05-13
 ### Did
@@ -91,3 +119,29 @@ arp -a
 - Ping works
 - Ping with max size (1472 bytes) also works
 - UDP stream at 1GB works with 64, 128, 256, 1024 and 1400 packet sizes. (pictures in `figures/`)
+
+
+## 2026-05-13
+### Did
+- TCP still does not work. Could it be due to too large packets?
+- Running `iperf3 -c 192.168.1.20 -u -b 1G -l 1472` the receiver side says all packets are being lost. If the overhead is too big and the allowed payload size is exceeded it should be dropping everything. After `Ctrl+C` out of this transmission ping does not work anymore, why doesn't the switch recover?
+
+The bellow TCP setup works (used -M to set the MSS (Maximum Segment Size)).
+```
+ iperf3 -c 192.168.1.20 -t 10 -M 1340
+ ```
+ This would give 1340 (data) + 20 (TCP) + 20 (IP) + 18 (Ethernet) = 1398 bytes on the wire
+
+ Where the Ethernet part of the header is SRC_MAC(6)+DST_MAC(6)+ETH_TYPE(2)
+
+ For the data FIFO it is also +8 for the preamble and start-of-frame delimiter (not part of packet rejection though)
+
+FOR TCP
+So the maximum `-M` value for TCP transmission will be 1518-18-20-20=1460
+
+FOR UDP
+Maximum `-l` value is 1518-18-20(IP)-8(UDP)=1472 (VERIFIED) 
+
+
+
+Abort logic was wrong used to keep collecting bytes in data FIFO even after aborting in crc_calculator. Added an `abort` signal to gate WEN into data FIFO. In simulation found that flushing the FIFO

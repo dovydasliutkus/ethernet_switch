@@ -85,6 +85,23 @@ TOP_TB_FILES = \
 
 TOP = switch_top_tb
 
+############################# OLD_TOP ################################
+
+OLD_TOP_SV_FILES = \
+	$(FCS_SV_FILES) \
+	$(CROSSBAR_SV_FILES) \
+	$(RTL)/mac_learner/mac_learner.sv \
+	$(RTL)/switchcore.sv \
+
+
+OLD_TOP_TB_FILES = \
+	$(TB)/top/switch_pkg.sv \
+	$(TB)/top/switch_if.sv \
+	$(TB)/top/old_top/top_tb.sv \
+	
+
+OLD_TOP = top_tb
+
 ############################# TARGETS ################################
 
 # Test for TOP
@@ -97,10 +114,25 @@ compile:
 	$(VLOG) $(VLOG_OPT) $(TOP_SV_FILES) $(TOP_TB_FILES)
 
 sim: compile
-	$(VSIM) $(TOP) -do "do wave_top.do; run -all"
+	$(VSIM) $(TOP) -do "do wave_old_top.do; run -all"
 
 batch: compile
 	$(VSIM) -c $(TOP) -do "run -all; quit" -l $(LOG_DIR)/$(TOP).log
+
+# Test for old TOP 
+old_all: compile
+
+old_compile:
+	@if not exist $(LOG_DIR) mkdir $(LOG_DIR)
+	$(VLIB) $(WORK)
+	$(VLOG) $(VLOG_OPT) $(ALTERA_LIB)
+	$(VLOG) $(VLOG_OPT) $(OLD_TOP_SV_FILES) $(OLD_TOP_TB_FILES)
+
+old_sim: old_compile
+	$(VSIM) $(OLD_TOP) -do "do wave_old_top.do; run -all"
+
+old_batch: compile
+	$(VSIM) -c $(OLD_TOP) -do "run -all; quit" -l $(LOG_DIR)/$(OLD_TOP).log
 
 
 # Test for crc_calculator

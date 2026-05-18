@@ -34,6 +34,7 @@ module fcs_control(
     logic [3:0]  w_dstmac_ren;
     logic [3:0]  w_datafifo_ren;
     logic [3:0]  w_datafifo_full;
+    logic [3:0]  w_abort;
 
     // ----------------------------------------------------------------
     // CRC calculators — one per inbound port
@@ -59,10 +60,11 @@ module fcs_control(
                 .i_srcmac_ren    ( w_srcmac_ren[i]      ),
                 .i_dstmac_ren    ( w_dstmac_ren[i]      ),
                 .o_status_empty  ( w_status_empty[i]    ),
-                .o_length_empty  (),  // Fifo signals for debugging  
-                .o_srcmac_empty  (),                          
-                .o_dstmac_empty  ()                           
-            );  
+                .o_length_empty  (),  // Fifo signals for debugging
+                .o_srcmac_empty  (),
+                .o_dstmac_empty  (),
+                .o_abort         ( w_abort[i]           )
+            );
         end
     endgenerate
 
@@ -71,7 +73,7 @@ module fcs_control(
             data_fifo data_fifo_inst (
                 .clock  ( i_clk                              ),
                 .data   ( i_rx_data[i*8 +: 8]               ),
-                .wrreq  ( i_rx_ctrl[i] && !w_datafifo_full[i]),
+                .wrreq  ( i_rx_ctrl[i] && !w_datafifo_full[i] && !w_abort[i]),
                 .rdreq  ( w_datafifo_ren[i]                  ),
                 .sclr   ( ~i_reset                           ),
                 .full   ( w_datafifo_full[i]                 ),
