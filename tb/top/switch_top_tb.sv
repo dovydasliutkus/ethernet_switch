@@ -108,14 +108,15 @@ module switch_top_tb;
         // Run the tests
         tc1();
         tc2();
-        // tc3();
-        // tc4();
-        // tc5();
-        // tc6();
-        // tc7();
-        // tc8();
-        // tc9();
+        tc3();
+        tc4();
+        tc5();
+        tc6();
+        tc7();
+        tc8();
+        tc9();
         tc10();
+        sb.suite_report();
         $finish();
     end
 
@@ -375,8 +376,6 @@ module switch_top_tb;
         int payload_len;
 
         sb.start_tc("TC10");
-        sb.error_count   = 0;
-        sb.compare_count = 0;
         clear_monitor_counts();
 
         // Three ports send on Port 0 simultaneously: the stress.
