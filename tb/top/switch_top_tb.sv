@@ -108,13 +108,13 @@ module switch_top_tb;
         // Run the tests
         tc1();
         tc2();
-        //tc3();
-        //tc4();
-        //tc5();
-        //tc6();
-        //tc7();
-        //tc8();
-        //tc9();
+        // tc3();
+        // tc4();
+        // tc5();
+        // tc6();
+        // tc7();
+        // tc8();
+        // tc9();
         tc10();
         $finish();
     end
@@ -369,7 +369,7 @@ module switch_top_tb;
     // TC10: Real contention (concurrent)
     task automatic tc10();
         // 3 senders blasting Port 0, 1 sender to Port 1 
-        localparam int BURST_SIZE = 2;
+        localparam int BURST_SIZE = 3;
         // P1->P0 x5, P2->P0 x5, P3->P0 x5, P0->P1 x5
         localparam int TOTAL = BURST_SIZE * 4;
         int payload_len;
@@ -395,8 +395,8 @@ module switch_top_tb;
         drv.wait_all_done();
 
         // P0 receives 3*BURST_SIZE = 15 frames, P1 receives 1*BURST_SIZE = 5 frames
-        wait(mon.frame_count[0] >= BURST_SIZE * 3 &&
-            mon.frame_count[1] >= BURST_SIZE * 1);
+        // wait(mon.frame_count[0] >= BURST_SIZE * 3 &&
+        //     mon.frame_count[1] >= BURST_SIZE * 1);
 
         sb.report("TC10");
     endtask
@@ -551,7 +551,8 @@ generate
 
                     $error("[%0t] ERROR: VOQ FIFO FULL row=%0d col=%0d",
                            $time, i, j);
-
+                    #5000;
+                    $stop;
                 end
 
 

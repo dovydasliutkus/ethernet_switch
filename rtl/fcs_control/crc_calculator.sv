@@ -25,7 +25,8 @@ module crc_calculator(
     output  logic        o_length_empty,
     output  logic        o_status_empty,
     output  logic        o_dstmac_empty,
-    output  logic        o_srcmac_empty
+    output  logic        o_srcmac_empty,
+    output  logic        o_abort
     );
 
     typedef enum logic [2:0] {
@@ -47,13 +48,15 @@ module crc_calculator(
 
     // FIFO signals
     logic length_wen, status_wen, dstmac_wen, srcmac_wen;
+    logic [10:0] length_fifo_data;
+    logic abort_n;
 
     // Signals for monitoring with SignalTap - use keep so they are not optimized away
     (* keep *) logic length_fifo_full, status_fifo_full, dstmac_fifo_full, srcmac_fifo_full;
 
     packet_length_fifo u_length_fifo (
-        .clock  (clk            ),
-        .data   (counter + 11'd8),
+        .clock  (clk             ),
+        .data   (length_fifo_data),
         .wrreq  (length_wen     ),
         .rdreq  (i_length_ren   ),
         .sclr   (~reset         ),
@@ -102,6 +105,7 @@ module crc_calculator(
             counter         <= '0;
             dst_mac_int     <= '0;
             src_mac_int     <= '0;
+            o_abort           <= 1'b0;
         end
         else begin
             state           <= state_n;
@@ -109,6 +113,7 @@ module crc_calculator(
             counter         <= counter_n;
             dst_mac_int     <= dst_mac_int_n;
             src_mac_int     <= src_mac_int_n;
+            o_abort           <= abort_n;
         end
     end
 
@@ -123,6 +128,8 @@ module crc_calculator(
         status_wen  = 1'b0;
         dstmac_wen  = 1'b0;
         srcmac_wen  = 1'b0;
+        abort_n         = o_abort;
+        length_fifo_data = counter + 11'd8;
         dst_mac_int_n   = dst_mac_int;
         src_mac_int_n   = src_mac_int;
 
@@ -130,7 +137,9 @@ module crc_calculator(
 
         // --------------------------------------------------------
         IDLE: begin
-            if (i_rx_ctrl) begin
+            if (!i_rx_ctrl) begin
+                abort_n = 1'b0;
+            end else if (!o_abort) begin
                 counter_n = 11'd1;
                 state_n   = PREAMBLE;
             end
@@ -214,11 +223,16 @@ module crc_calculator(
         // end
         
         // Global abort: Packet length too long, write length and status for dump
-        if (counter == 11'd1518) begin
-            state_n   = IDLE;
-            counter_n = '0;
-            length_wen = 1'b1;  // push byte count into length FIFO
-            status_wen = 1'b1;  // push CRC result into status FIFO
+        // i_rx_ctrl guard prevents double-fire when a max-size frame ends normally
+        // (counter reaches 1519 the cycle i_rx_ctrl drops for a 1518-byte frame).
+        if (counter > 11'd1518 && i_rx_ctrl) begin
+            state_n          = IDLE;
+            counter_n        = '0;
+            // NEED the below line because rx_ctrl is still high and until abort registers another byte will come into the data FIFO (without this the data FIFO slowly fills up when oversized packets)
+            length_fifo_data = counter + 11'd9;  // +1 relative to normal end-of-packet
+            length_wen       = 1'b1;
+            status_wen       = 1'b1;
+            abort_n          = 1'b1;
         end
     end
 

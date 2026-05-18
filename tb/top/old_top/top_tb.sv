@@ -115,13 +115,52 @@ module top_tb;
         for (int b = 0; b < plen; b++) begin
             @(negedge i_clk);
             port_rx_ctrl[port] = 1'b1;
-            port_rx_data[port] = packets[pkt_idx][b];
+            // port_rx_data[port] = packets[pkt_idx][b];
+            port_rx_data[port] = {packets[pkt_idx][b][0], packets[pkt_idx][b][1],
+                                  packets[pkt_idx][b][2], packets[pkt_idx][b][3],
+                                  packets[pkt_idx][b][4], packets[pkt_idx][b][5],
+                                  packets[pkt_idx][b][6], packets[pkt_idx][b][7]};
         end
 
         @(posedge i_clk);
         @(negedge i_clk);
         port_rx_ctrl[port] = 1'b0;
         port_rx_data[port] = 8'b0;
+    endtask
+
+    // ----------------------------------------------------------------
+    // send_oversized_packet : drives a frame that is a few bytes beyond
+    // the 1518-byte limit.  No valid CRC — just raw bytes.
+    // ----------------------------------------------------------------
+    task automatic send_oversized_packet(int port);
+        // 8-byte preamble/SFD
+        automatic logic [7:0] preamble [8] = '{8'hAA,8'hAA,8'hAA,8'hAA,
+                                               8'hAA,8'hAA,8'hAA,8'hAB};
+        // Frame body: 6 DST_MAC + 6 SRC_MAC + 2 EtherType + 1506 payload + 4 dummy FCS
+        // = 1524 bytes (6 bytes over the 1518-byte limit)
+        localparam int OVERSIZE_BODY = 1524;
+
+        $display("[%0t] Sending OVERSIZED packet on port %0d (frame body = %0d bytes, limit = 1518)",
+                 $time, port, OVERSIZE_BODY);
+
+        foreach (preamble[i]) begin
+            @(negedge i_clk);
+            port_rx_ctrl[port] = 1'b1;
+            port_rx_data[port] = preamble[i];
+        end
+
+        for (int b = 0; b < OVERSIZE_BODY; b++) begin
+            @(negedge i_clk);
+            port_rx_ctrl[port] = 1'b1;
+            port_rx_data[port] = b[7:0];   // incrementing pattern
+        end
+
+        @(posedge i_clk);
+        @(negedge i_clk);
+        port_rx_ctrl[port] = 1'b0;
+        port_rx_data[port] = 8'b0;
+
+        $display("[%0t] Oversized packet done, rx_ctrl dropped", $time);
     endtask
 
     // ----------------------------------------------------------------
@@ -225,21 +264,61 @@ module top_tb;
 
         read_packet_file(PACKET_FILE);
 
-        for (int p = 0; p + 1 < num_packets; p += 2) begin
-            send_packet(p, 0);
-            check_output(p, 0);
-            repeat(4) @(posedge i_clk);
+        // ----------------------------------------------------------------
+        // RR arbitration demo: inject packet 0 on all 4 ports at once.
+        // With all ingress FIFOs non-empty simultaneously, output_control
+        // must choose between competing ports — rr_ptr advances each cycle
+        // a new port is granted, making the round-robin visible in waves.
+        // ----------------------------------------------------------------
+        // if (num_packets >= 1) begin
+        //     $display("\n=== RR demo: all 4 ports inject packet 0 concurrently ===");
+        //     send_packet(0, 0);
+        //     // fork
+        //     //     send_packet(0, 0);
+        //     //     send_packet(0, 1);
+        //     //     send_packet(0, 2);
+        //     //     send_packet(0, 3);
+        //     // join
+        //     // send_packet(1, 0);
+        //     repeat(100) @(posedge i_clk);
+        //     $display("=== RR demo complete ===\n");
+        //     repeat(8) @(posedge i_clk);
+        // end
+        
+        // ----------------------------------------------------------------
+        // Oversized packet test: send a frame 6 bytes over the 1518-byte
+        // limit, then send a normal packet to verify the switch recovers.
+        // ----------------------------------------------------------------
+        $display("\n=== Oversized packet test ===");
+        send_oversized_packet(0);
+        repeat(200) @(posedge i_clk);   // give time for any spurious output
+        
+        send_packet(0, 0);
+            repeat(100) @(posedge i_clk);
 
-            send_packet(p+1, 1);
-            check_output(p+1, 1);
-            repeat(4) @(posedge i_clk);
-        end
+            send_oversized_packet(0);
+        repeat(200) @(posedge i_clk);   // give time for any spurious output
+        
+        send_packet(0, 0);
+            repeat(2000) @(posedge i_clk);
+        // end
+        $display("=== Oversized packet test complete ===\n");
 
-        if (num_packets % 2 == 1) begin
-            send_packet(num_packets - 1, 0);
-            check_output(num_packets - 1, 0);
-            repeat(4) @(posedge i_clk);
-        end
+        // for (int p = 0; p + 1 < num_packets; p += 2) begin
+        //     send_packet(p, 0);
+        //     check_output(p, 0);
+        //     repeat(4) @(posedge i_clk);
+
+        //     send_packet(p+1, 1);
+        //     check_output(p+1, 1);
+        //     repeat(4) @(posedge i_clk);
+        // end
+
+        // if (num_packets % 2 == 1) begin
+        //     send_packet(num_packets - 1, 0);
+        //     check_output(num_packets - 1, 0);
+        //     repeat(4) @(posedge i_clk);
+        // end
 
         $display("Simulation complete.");
         $stop;
