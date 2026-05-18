@@ -1,10 +1,3 @@
-// =============================================================================
-// File        : fcs_check_parallel.sv
-// Description : Parallel (8 bit input) CRC-32 checker.
-// 1. Inverts first and last 4 bytes
-// 2. Calculates the ramainder rem[M(X)/G(X)]
-// =============================================================================
-
 module crc_calculator(
     input   logic        clk,
     input   logic        reset,      // synchronous active-high
@@ -224,7 +217,6 @@ module crc_calculator(
         
         // Global abort: Packet length too long, write length and status for dump
         // i_rx_ctrl guard prevents double-fire when a max-size frame ends normally
-        // (counter reaches 1519 the cycle i_rx_ctrl drops for a 1518-byte frame).
         if (counter > 11'd1518 && i_rx_ctrl) begin
             state_n          = IDLE;
             counter_n        = '0;

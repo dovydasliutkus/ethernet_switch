@@ -95,13 +95,9 @@ module drr_scheduler #(
     always_comb begin
         for (int i = 0; i < 4; i++) begin
             will_accept[i] = i_pkt_valid[i] 
-<<<<<<< HEAD
                            & i_dst_port[i] 
+                        // TODO SHOULD THIS BE COMMENTED OUT?
                         //    & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) 
-=======
-                           & i_dst_port[i][PORT_ID]
-                           & (space_left[i] >= OCC_WIDTH'(i_pkt_len[i])) 
->>>>>>> crossbar_fix
                            & ~i_buffer_full[i] 
                            & ~len_full[i]
                            & i_reset;
