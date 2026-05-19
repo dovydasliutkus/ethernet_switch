@@ -2,9 +2,7 @@
 
 module tb_mac_learner();
 
-    // ---------------------------------------------------------
-    // 1. Signal Declarations
-    // ---------------------------------------------------------
+    // Signal declarations
     logic        clk;
     logic        reset;
     logic        valid;
@@ -14,9 +12,7 @@ module tb_mac_learner();
     logic [3:0]  dst_port;
     logic        done;
 
-    // ---------------------------------------------------------
-    // 2. Instantiate DUT (Device Under Test)
-    // ---------------------------------------------------------
+    // Instantiate DUT
     mac_learner dut (
         .clk(clk),
         .reset(reset),
@@ -28,17 +24,13 @@ module tb_mac_learner();
         .done(done)
     );
 
-    // ---------------------------------------------------------
-    // 3. Clock Generator (125 MHz -> 8ns period)
-    // ---------------------------------------------------------
+    // Clock generator (125 MHz -> 8ns period)
     initial begin
         clk = 0;
-        forever #4 clk = ~clk; // 4ns low, 4ns high
+        forever #4 clk = ~clk;
     end
 
-    // ---------------------------------------------------------
-    // 4. Helper task to send packet requests cleanly
-    // ---------------------------------------------------------
+    // Helper task to send packet requests
     task send_request(input logic [3:0] s_port, input logic [47:0] s_mac, input logic [47:0] d_mac);
         begin
             @(posedge clk);
@@ -47,22 +39,19 @@ module tb_mac_learner();
             src_mac  <= s_mac;
             dst_mac  <= d_mac;
             
-            @(posedge clk); // Cycle 1: BRAM read starts
-            valid    <= 1'b0; // Important: Pulse valid for only 1 cycle
+            @(posedge clk);
+            valid    <= 1'b0; // Pulse valid for 1 cycle
             
-            @(posedge clk); // Cycle 2: Processing and writing
-            wait(done);     // Wait for 'done' signal from the MAC Learner
+            @(posedge clk);
+            wait(done); // Wait for execution to complete
             
             $display("Time: %0t | SRC_MAC: %h (Port %b) | DST_MAC: %h -> RESULT DST_PORT: %b", 
                       $time, s_mac, s_port, d_mac, dst_port);
-                      
-            @(posedge clk); // Small inter-packet gap
+            @(posedge clk); // Inter-packet gap
         end
     endtask
 
-    // ---------------------------------------------------------
-    // 5. Main Test Sequence
-    // ---------------------------------------------------------
+    // Main Test Sequence
     initial begin
         $display("=== MAC LEARNER SIMULATION STARTED ===");
         
@@ -76,44 +65,36 @@ module tb_mac_learner();
         reset = 1;
         #20;
 
-        // --- TEST 1: Learn new MAC + Split Horizon Flood ---
+        // TEST 1: Learn Host A and unknown dest (Flood)
         $display("\n--- TEST 1: Learn Host A and unknown dest (Flood) ---");
-        // Host A (Port 1: 0001) sends to unknown Host B.
-        // Expected: Flood mask excluding incoming Port 1 -> 1110
         send_request(4'b0001, 48'hAAAA_BBBB_CCCC, 48'h1111_2222_3333);
 
-        // --- TEST 2: Lookup with a hit ---
+        // TEST 2: Lookup with a hit
         $display("\n--- TEST 2: Host B replies to Host A (Hit) ---");
-        // Host B (Port 2: 0010) replies to Host A.
-        // Expected: Port 1 mask -> 0001
         send_request(4'b0010, 48'h1111_2222_3333, 48'hAAAA_BBBB_CCCC);
 
-        // --- TEST 3: Hardcore Hash Collision and LRU eviction ---
+        // TEST 3: Hash Collision and LRU eviction
         $display("\n--- TEST 3: 2-way LRU eviction test (Forced Collisions) ---");
-        // We use 12-bit (3 hex character) offsets to guarantee the exact same XOR hash (0xABC)
-        
-        // 1. MAC_X: 12-bit offset in the lowest segment. Fills Way 1.
-        send_request(4'b0100, 48'h000_000_000_ABC, 48'hFFFF_FFFF_FFFF);
-        
-        // 2. MAC_Y: 12-bit offset in the 2nd segment. Collision! Fills Way 2.
-        send_request(4'b1000, 48'h000_000_ABC_000, 48'hFFFF_FFFF_FFFF);
-        
-        // 3. MAC_X speaks again. Updates LRU (MAC_Y is now considered older).
-        send_request(4'b0100, 48'h000_000_000_ABC, 48'hFFFF_FFFF_FFFF);
-        
-        // 4. MAC_Z: 12-bit offset in the highest segment. Both ways full.
-        // Hardware must evict MAC_Y because it is the oldest!
-        send_request(4'b0001, 48'hABC_000_000_000, 48'hFFFF_FFFF_FFFF);
+        send_request(4'b0100, 48'h000_000_000_ABC, 48'hFFFF_FFFF_FFFF); // Fills Way 1
+        send_request(4'b1000, 48'h000_000_ABC_000, 48'hFFFF_FFFF_FFFF); // Fills Way 2
+        send_request(4'b0100, 48'h000_000_000_ABC, 48'hFFFF_FFFF_FFFF); // Updates LRU (Way 2 becomes oldest)
+        send_request(4'b0001, 48'hABC_000_000_000, 48'hFFFF_FFFF_FFFF); // Evicts oldest (Way 2 / MAC_Y)
 
-        // --- TEST 4: Verify eviction ---
+        // TEST 4: Verify eviction
         $display("\n--- TEST 4: Verify eviction (Lookup for evicted MAC_Y) ---");
-        // Search for MAC_Y. Since it was overwritten by Z, it must be a Miss.
-        // Expected: Flood mask excluding incoming port -> 1110
         send_request(4'b0001, 48'h999_888_777_666, 48'h000_000_ABC_000);
+
+        // TEST 5: Inject Multicast Source MAC (I/G bit = 1)
+        $display("\n--- TEST 5: Inject Multicast Source MAC (I/G bit = 1) ---");
+        send_request(4'b0100, 48'hAAAA_BBBB_0001, 48'hFFFF_FFFF_FFFF);
+
+        // TEST 6: Verify Multicast MAC was NOT learned
+        $display("\n--- TEST 6: Verify Multicast MAC was NOT learned ---");
+        send_request(4'b1000, 48'h5555_6666_7777, 48'hAAAA_BBBB_0001);
 
         #100;
         $display("=== SIMULATION FINISHED SUCCESSFULLY ===");
-        $stop; // Stop ModelSim execution
+        $stop;
     end
 
 endmodule
